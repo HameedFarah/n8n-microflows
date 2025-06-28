@@ -1,0 +1,111 @@
+{
+  "workflow_meta": {
+    "id": "classify__gpt__task_intent",
+    "goal": "Classify user tasks into workflow categories using GPT analysis",
+    "category": "validation",
+    "complexity": "medium",
+    "execution_time": "3-5 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["openai_api", "supabase"],
+    "tags": ["classification", "routing", "intent"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "task_description": {
+          "type": "string",
+          "description": "User task text to classify"
+        },
+        "tenant_id": {
+          "type": "string", 
+          "description": "Tenant ID for isolation"
+        }
+      },
+      "required": ["task_description", "tenant_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "task_category": "content|social|seo|communication|data",
+      "confidence_score": "0.0-1.0",
+      "suggested_flows": ["workflow_id_array"]
+    },
+    "error": {
+      "error_code": "CLASSIFICATION_FAILED|INVALID_INPUT",
+      "message": "Human readable error",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "gpt",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Load template, validate input",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "ValidationError on missing fields"
+      },
+      {
+        "type": "OpenAI",
+        "purpose": "Classify task intent",
+        "parameters": {
+          "model": "gpt-4o-mini",
+          "maxTokens": 200,
+          "temperature": 0.3
+        },
+        "credentials": "openai_api",
+        "error_handling": "Default classification on parse fail"
+      },
+      {
+        "type": "Code",
+        "purpose": "Parse response, format output",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Default classification on parse fail"
+      }
+    ],
+    "gpt_usage": {
+      "model": "gpt-4o-mini",
+      "prompt_template_id": "task_classification",
+      "prompt_variables": ["task_description", "categories"],
+      "justification": "Intent detection requires NLP understanding",
+      "token_estimate": "150-200",
+      "parameters": {
+        "max_tokens": 200,
+        "temperature": 0.3
+      }
+    },
+    "supabase_tables": ["prompt_templates", "execution_logs"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "10 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "task_description": "Write AI blog post",
+      "tenant_id": "tenant_123"
+    },
+    "output": {
+      "task_category": "content",
+      "confidence_score": 0.95,
+      "suggested_flows": ["create__gpt__blog_article"]
+    },
+    "explanation": "Analyzes text, identifies content creation, returns category with confidence"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["route__code__by_category"],
+    "input_from": ["validate__input__user_request"],
+    "output_to": ["build__code__content_workflow"]
+  }
+}

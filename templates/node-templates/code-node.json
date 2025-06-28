@@ -1,0 +1,10 @@
+{
+  "id": "code-node-template",
+  "name": "Code Node Template",
+  "type": "n8n-nodes-base.code",
+  "position": [0, 0],
+  "parameters": {
+    "mode": "runOnceForEachItem",
+    "jsCode": "// Template for N8N Code node\n\n// Get input data\nconst inputData = $input.all();\nconst item = $input.first();\n\n// Validate required fields\nif (!item.json.tenant_id) {\n  throw new Error('tenant_id is required for tenant isolation');\n}\n\n// Your logic here\nconst result = {\n  // Process the input data\n  processed: true,\n  tenant_id: item.json.tenant_id,\n  timestamp: new Date().toISOString()\n};\n\n// Return result\nreturn [{ json: result }];"
+  }
+}

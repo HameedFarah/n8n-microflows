@@ -1,0 +1,33 @@
+{
+  "id": "openai-node-template",
+  "name": "OpenAI Node Template",
+  "type": "n8n-nodes-base.openAi",
+  "position": [0, 0],
+  "parameters": {
+    "resource": "chat",
+    "operation": "message",
+    "model": "gpt-4o-mini",
+    "messages": {
+      "messageValues": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant for N8N workflow processing."
+        },
+        {
+          "role": "user",
+          "content": "{{ $json.prompt_template_id }}"
+        }
+      ]
+    },
+    "options": {
+      "temperature": 0.3,
+      "maxTokens": 200
+    }
+  },
+  "credentials": {
+    "openAiApi": {
+      "id": "openai_credentials",
+      "name": "OpenAI API"
+    }
+  }
+}

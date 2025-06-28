@@ -1,0 +1,79 @@
+{
+  "workflow_meta": {
+    "id": "[function]__[tool]__[output]",
+    "goal": "Single sentence describing what this workflow achieves",
+    "category": "[content|validation|communication|data|seo|social|utilities]",
+    "complexity": "[simple|medium|complex]",
+    "execution_time": "[estimated seconds]",
+    "reuse_potential": "[high|medium|low]",
+    "tenant_aware": "[yes|no]",
+    "dependencies": ["external_service1", "external_service2"],
+    "tags": ["keyword1", "keyword2", "keyword3"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "required_field": {
+          "type": "string",
+          "description": "Description of this field"
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Required for tenant isolation"
+        }
+      },
+      "required": ["required_field", "tenant_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "result": "Expected output format",
+      "status": "success"
+    },
+    "error": {
+      "error_code": "SPECIFIC_ERROR_TYPE",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Main processing logic",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle validation errors"
+      }
+    ],
+    "supabase_tables": ["execution_logs"],
+    "error_handling": {
+      "retry_policy": "none",
+      "timeout": "10 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "required_field": "sample_value",
+      "tenant_id": "tenant_123"
+    },
+    "output": {
+      "result": "processed_value",
+      "status": "success"
+    },
+    "explanation": "Step by step explanation of what happens"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["other_workflow_ids"],
+    "input_from": ["upstream_workflows"],
+    "output_to": ["downstream_workflows"]
+  }
+}

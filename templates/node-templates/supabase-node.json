@@ -1,0 +1,40 @@
+{
+  "id": "supabase-node-template",
+  "name": "Supabase Node Template",
+  "type": "n8n-nodes-base.supabase",
+  "position": [0, 0],
+  "parameters": {
+    "operation": "insert",
+    "table": "execution_logs",
+    "fieldsUi": {
+      "fieldValues": [
+        {
+          "fieldId": "workflow_id",
+          "fieldValue": "{{ $json.workflow_id }}"
+        },
+        {
+          "fieldId": "tenant_id",
+          "fieldValue": "{{ $json.tenant_id }}"
+        },
+        {
+          "fieldId": "status",
+          "fieldValue": "success"
+        },
+        {
+          "fieldId": "input_data",
+          "fieldValue": "{{ $json }}"
+        },
+        {
+          "fieldId": "execution_time_ms",
+          "fieldValue": "{{ $json.execution_time }}"
+        }
+      ]
+    }
+  },
+  "credentials": {
+    "supabaseApi": {
+      "id": "supabase_credentials",
+      "name": "Supabase API"
+    }
+  }
+}

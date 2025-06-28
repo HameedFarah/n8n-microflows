@@ -1,0 +1,33 @@
+{
+  "name": "n8n-microflows",
+  "version": "1.0.0",
+  "description": "Validation and automation scripts for N8N microflows",
+  "scripts": {
+    "validate": "node scripts/validate-workflow.js",
+    "check-naming": "node scripts/check-naming.js",
+    "check-docs": "node scripts/check-documentation.js",
+    "update-catalog": "node scripts/update-catalog.js",
+    "test": "node scripts/test-runner.js",
+    "setup-supabase": "node scripts/setup-supabase.js",
+    "generate-embeddings": "node scripts/generate-embeddings.js",
+    "validate-all": "npm run validate && npm run check-naming && npm run check-docs"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "glob": "^10.3.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HameedFarah/n8n-microflows.git"
+  },
+  "keywords": ["n8n", "workflows", "automation", "microflows", "AI"],
+  "author": "HameedFarah",
+  "license": "MIT"
+}

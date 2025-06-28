@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "N8N Node Documentation Schema",
+  "type": "object",
+  "required": ["type", "purpose", "parameters", "error_handling"],
+  
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "N8N node type (e.g., 'Code', 'OpenAI', 'Supabase', 'HTTP')"
+    },
+    "purpose": {
+      "type": "string",
+      "description": "What this node does in the workflow"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Node configuration parameters"
+    },
+    "credentials": {
+      "type": "string",
+      "description": "Required credentials reference"
+    },
+    "error_handling": {
+      "type": "string",
+      "description": "How errors are handled in this node"
+    },
+    "retry_config": {
+      "type": "object",
+      "properties": {
+        "attempts": {"type": "number"},
+        "wait_time": {"type": "string"}
+      }
+    }
+  }
+}

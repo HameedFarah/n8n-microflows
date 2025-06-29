@@ -1,15 +1,82 @@
-name: Validate N8N Microflow
+name: Enhanced N8N Microflow Validation
 
 on:
   pull_request:
-    paths: ['microflows/**/*.json']
+    paths: 
+      - 'microflows/**/*.json'
+      - 'scripts/**'
+      - 'schemas/**'
+      - 'package.json'
   push:
-    paths: ['microflows/**/*.json']
+    paths: 
+      - 'microflows/**/*.json'
+      - 'scripts/**'
+      - 'schemas/**'
+      - 'package.json'
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_security_scan:
+        description: 'Run security scan'
+        required: false
+        default: 'true'
+        type: boolean
+      run_performance_tests:
+        description: 'Run performance tests'
+        required: false
+        default: 'true'
+        type: boolean
 
 jobs:
+  # Job 1: Basic validation and linting
   validate:
+    name: Validate Workflows
     runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        
+    - name: Validate JSON Schema
+      run: |
+        npm run validate
+        
+    - name: Check Naming Conventions
+      run: |
+        npm run check-naming
+        
+    - name: Validate Documentation
+      run: |
+        npm run check-docs
+        
+    - name: Run comprehensive tests
+      run: |
+        npm run test
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: test-report.json
+
+  # Job 2: Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_security_scan == 'true' || github.event_name != 'workflow_dispatch'
     
     steps:
     - name: Checkout repository
@@ -19,27 +86,199 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+        cache: 'npm'
         
     - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
       run: |
-        npm install
+        npm audit --audit-level moderate
         
-    - name: Validate JSON Schema
-      run: npm run validate
+    - name: Security scan workflows
+      run: |
+        npm run test -- --filter=security
+        
+    - name: Check for hardcoded credentials
+      run: |
+        echo "Scanning for potential hardcoded credentials..."
+        if grep -r -i -E "(password|secret|key|token|credential)\s*[:=]\s*['\"][^'\"]{8,}" microflows/ --include="*.json"; then
+          echo "❌ Potential hardcoded credentials found!"
+          exit 1
+        else
+          echo "✅ No hardcoded credentials detected"
+        fi
+
+  # Job 3: Performance testing
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_performance_tests == 'true' || github.event_name != 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
       
-    - name: Check Naming Convention
-      run: npm run check-naming
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
       
-    - name: Validate Documentation
-      run: npm run check-docs
+    - name: Run performance tests
+      run: |
+        npm run test -- --filter=performance
+        
+    - name: Benchmark validation speed
+      run: |
+        echo "Running validation benchmark..."
+        time npm run validate
+        
+    - name: Check workflow file sizes
+      run: |
+        echo "Checking workflow file sizes..."
+        find microflows/ -name "*.json" -size +1M -exec echo "Large workflow file: {}" \;
+        if find microflows/ -name "*.json" -size +1M | grep -q .; then
+          echo "⚠️ Large workflow files detected (>1MB)"
+        else
+          echo "✅ All workflow files are reasonably sized"
+        fi
+
+  # Job 4: Integration testing
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [validate]
+    
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
       
-    - name: Generate Workflow Catalog
-      run: npm run update-catalog
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
       
+    - name: Test script integrations
+      run: |
+        npm run test -- --filter=integration
+        
+    - name: Test all npm scripts
+      run: |
+        npm run validate-all
+
+  # Job 5: Auto-update workflow catalog
+  update-catalog:
+    name: Update Workflow Catalog
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Generate updated catalog
+      run: |
+        npm run update-catalog
+        
+    - name: Generate embeddings
+      run: |
+        npm run generate-embeddings
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        
     - name: Commit catalog updates
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add docs/workflow-catalog.md || true
-        git diff --staged --quiet || git commit -m "Update workflow catalog [skip ci]" || true
-        git push || true
+        git add scripts/embeddings.json || true
+        
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "📝 Auto-update workflow catalog and embeddings [skip ci]"
+          git push
+          echo "✅ Catalog updated successfully"
+        fi
+
+  # Job 6: Quality metrics and reporting
+  metrics:
+    name: Quality Metrics
+    runs-on: ubuntu-latest
+    needs: [validate, security, performance, integration]
+    if: always()
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Download test results
+      uses: actions/download-artifact@v3
+      with:
+        name: test-results
+        path: ./
+        
+    - name: Generate quality metrics
+      run: |
+        echo "## 📊 Quality Metrics Report" > quality-report.md
+        echo "" >> quality-report.md
+        
+        # Count workflows
+        workflow_count=$(find microflows/ -name "*.json" | wc -l)
+        echo "- **Total Workflows**: $workflow_count" >> quality-report.md
+        
+        # Count categories
+        categories=$(find microflows/ -type d -mindepth 1 -maxdepth 1 | wc -l)
+        echo "- **Categories**: $categories" >> quality-report.md
+        
+        # Documentation coverage
+        doc_files=$(find docs/ -name "*.md" | wc -l)
+        echo "- **Documentation Files**: $doc_files" >> quality-report.md
+        
+        # Test results
+        if [[ -f "test-report.json" ]]; then
+          pass_rate=$(cat test-report.json | jq -r '.summary.successRate')
+          echo "- **Test Pass Rate**: ${pass_rate}%" >> quality-report.md
+        fi
+        
+        echo "" >> quality-report.md
+        echo "Generated on: $(date)" >> quality-report.md
+        
+    - name: Upload quality report
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-report
+        path: quality-report.md

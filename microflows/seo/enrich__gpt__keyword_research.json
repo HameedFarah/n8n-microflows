@@ -1,0 +1,158 @@
+{
+  "workflow_meta": {
+    "id": "enrich__gpt__keyword_research",
+    "goal": "Generate comprehensive keyword research and analysis using GPT for SEO optimization",
+    "category": "seo",
+    "complexity": "medium",
+    "execution_time": "10-15 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["openai_api", "supabase"],
+    "tags": ["seo", "keywords", "research", "content-optimization"]
+  },
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "primary_keyword": {
+          "type": "string",
+          "description": "Main keyword to research"
+        },
+        "target_audience": {
+          "type": "string",
+          "description": "Target audience description"
+        },
+        "industry": {
+          "type": "string",
+          "description": "Industry or niche category"
+        },
+        "content_type": {
+          "type": "string",
+          "enum": ["blog_post", "product_page", "landing_page", "category_page"],
+          "description": "Type of content for keyword targeting"
+        },
+        "competition_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Desired competition level for keywords"
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Required for tenant isolation"
+        }
+      },
+      "required": ["primary_keyword", "target_audience", "industry", "tenant_id"]
+    }
+  },
+  "outputs": {
+    "success": {
+      "primary_keyword_analysis": "object",
+      "related_keywords": "array",
+      "long_tail_keywords": "array",
+      "content_suggestions": "array",
+      "search_intent": "string",
+      "difficulty_score": "number",
+      "status": "success"
+    },
+    "error": {
+      "error_code": "KEYWORD_RESEARCH_FAILED",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  "implementation": {
+    "primary_approach": "gpt",
+    "n8n_nodes": [
+      {
+        "type": "OpenAI",
+        "purpose": "Generate keyword research and analysis",
+        "parameters": {
+          "model": "gpt-4o-mini",
+          "maxTokens": 1000,
+          "temperature": 0.3,
+          "systemMessage": "You are an expert SEO researcher. Analyze keywords for search optimization and provide comprehensive research data in structured JSON format."
+        },
+        "error_handling": "Handle API rate limits and errors"
+      },
+      {
+        "type": "Code",
+        "purpose": "Parse and structure keyword data",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle JSON parsing errors"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Store keyword research results",
+        "parameters": {
+          "operation": "insert",
+          "table": "keyword_research",
+          "columns": "primary_keyword, research_data, tenant_id, created_at"
+        },
+        "error_handling": "Log storage errors but continue workflow"
+      }
+    ],
+    "gpt_usage": {
+      "model": "gpt-4o-mini",
+      "prompt_template_id": "keyword_research",
+      "prompt_variables": ["primary_keyword", "target_audience", "industry", "content_type"],
+      "justification": "GPT excels at understanding search intent and generating relevant keyword variations",
+      "token_estimate": "800-1000",
+      "parameters": {
+        "max_tokens": 1000,
+        "temperature": 0.3
+      }
+    },
+    "supabase_tables": ["keyword_research"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "30 seconds"
+    }
+  },
+  "example": {
+    "input": {
+      "primary_keyword": "sustainable fashion",
+      "target_audience": "environmentally conscious millennials",
+      "industry": "fashion and apparel",
+      "content_type": "blog_post",
+      "competition_level": "medium",
+      "tenant_id": "tenant_123"
+    },
+    "output": {
+      "primary_keyword_analysis": {
+        "keyword": "sustainable fashion",
+        "search_volume": "medium",
+        "competition": "medium",
+        "user_intent": "informational/commercial"
+      },
+      "related_keywords": [
+        "eco-friendly clothing",
+        "ethical fashion brands",
+        "sustainable clothing materials",
+        "slow fashion movement"
+      ],
+      "long_tail_keywords": [
+        "how to shop for sustainable fashion",
+        "best sustainable fashion brands 2024",
+        "sustainable fashion on a budget",
+        "eco-friendly fashion for millennials"
+      ],
+      "content_suggestions": [
+        "Create comprehensive guide on sustainable materials",
+        "Compare top eco-friendly fashion brands",
+        "Discuss impact of fast fashion on environment",
+        "Provide budget-friendly sustainable shopping tips"
+      ],
+      "search_intent": "Users seeking information about sustainable fashion options and ethical shopping practices",
+      "difficulty_score": 6.5,
+      "status": "success"
+    },
+    "explanation": "Analyzes primary keyword and generates comprehensive SEO research including related terms, long-tail opportunities, and content suggestions"
+  },
+  "reuse_info": {
+    "compatible_with": ["content_planning", "seo_optimization"],
+    "input_from": ["content_strategy", "competitor_analysis"],
+    "output_to": ["content_creation", "seo_reporting"]
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "workflow_meta": {
+    "id": "transform__csv__json_converter",
+    "goal": "Convert CSV data to structured JSON with validation and transformation rules",
+    "category": "utilities",
+    "complexity": "simple",
+    "execution_time": "2-4 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": [],
+    "tags": ["csv", "json", "transformation", "data-conversion", "validation"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "csv_data": {"type": "string", "description": "Raw CSV content or file URL"},
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "conversion_options": {
+          "type": "object",
+          "properties": {
+            "delimiter": {"type": "string", "default": ","},
+            "has_header": {"type": "boolean", "default": true},
+            "skip_empty_rows": {"type": "boolean", "default": true},
+            "trim_whitespace": {"type": "boolean", "default": true},
+            "data_types": {"type": "object", "description": "Column type mappings"}
+          }
+        },
+        "transformation_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "column": {"type": "string"},
+              "operation": {"type": "string", "enum": ["rename", "format", "validate", "calculate"]},
+              "value": {"type": "string"}
+            }
+          }
+        },
+        "validation_rules": {
+          "type": "object",
+          "properties": {
+            "required_columns": {"type": "array", "items": {"type": "string"}},
+            "max_rows": {"type": "number", "default": 10000},
+            "allow_duplicates": {"type": "boolean", "default": true}
+          }
+        }
+      },
+      "required": ["csv_data", "tenant_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "json_data": "array of converted JSON objects",
+      "metadata": {
+        "total_rows": "number of data rows processed",
+        "columns": "array of column names",
+        "data_types": "detected or applied data types",
+        "validation_errors": "array of validation issues"
+      },
+      "processing_time": "conversion duration in ms",
+      "status": "success"
+    },
+    "error": {
+      "error_code": "INVALID_CSV|PARSING_ERROR|VALIDATION_FAILED|SIZE_LIMIT_EXCEEDED",
+      "message": "Human readable error description",
+      "retry_suggested": false
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Validate CSV format and size limits",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Reject invalid CSV immediately"
+      },
+      {
+        "type": "CSV Parser",
+        "purpose": "Parse CSV data with specified options",
+        "parameters": {
+          "delimiter": "={{$node['Code'].json['delimiter']}}",
+          "includeEmptyRows": false,
+          "headerRow": true
+        },
+        "error_handling": "Handle malformed CSV gracefully"
+      },
+      {
+        "type": "Code",
+        "purpose": "Apply transformation rules and data type conversion",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Log transformation errors but continue"
+      },
+      {
+        "type": "Code",
+        "purpose": "Validate data against rules and format output",
+        "parameters": {
+          "mode": "runOnceForAllItems"
+        },
+        "error_handling": "Report validation issues without failing"
+      }
+    ],
+    "supabase_tables": ["conversion_logs"],
+    "error_handling": {
+      "retry_policy": "none",
+      "timeout": "10 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "csv_data": "name,email,age,department\nJohn Doe,john@example.com,30,Engineering\nJane Smith,jane@example.com,28,Marketing\nBob Johnson,bob@example.com,35,Sales",
+      "tenant_id": "tenant_123",
+      "conversion_options": {
+        "delimiter": ",",
+        "has_header": true,
+        "skip_empty_rows": true,
+        "trim_whitespace": true,
+        "data_types": {
+          "age": "number",
+          "name": "string",
+          "email": "string",
+          "department": "string"
+        }
+      },
+      "transformation_rules": [
+        {
+          "column": "email",
+          "operation": "validate",
+          "value": "email_format"
+        },
+        {
+          "column": "age",
+          "operation": "validate",
+          "value": "positive_number"
+        }
+      ],
+      "validation_rules": {
+        "required_columns": ["name", "email"],
+        "max_rows": 1000,
+        "allow_duplicates": false
+      }
+    },
+    "output": {
+      "json_data": [
+        {
+          "name": "John Doe",
+          "email": "john@example.com",
+          "age": 30,
+          "department": "Engineering"
+        },
+        {
+          "name": "Jane Smith",
+          "email": "jane@example.com",
+          "age": 28,
+          "department": "Marketing"
+        },
+        {
+          "name": "Bob Johnson",
+          "email": "bob@example.com",
+          "age": 35,
+          "department": "Sales"
+        }
+      ],
+      "metadata": {
+        "total_rows": 3,
+        "columns": ["name", "email", "age", "department"],
+        "data_types": {
+          "name": "string",
+          "email": "string", 
+          "age": "number",
+          "department": "string"
+        },
+        "validation_errors": []
+      },
+      "processing_time": 145,
+      "status": "success"
+    },
+    "explanation": "CSV successfully converted to JSON with data type conversion and validation applied"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["store__database__bulk_insert", "validate__data__quality_check"],
+    "input_from": ["get__file__upload_processor"],
+    "output_to": ["transform__data__normalize_format"]
+  }
+}

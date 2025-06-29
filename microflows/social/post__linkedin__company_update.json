@@ -1,0 +1,154 @@
+{
+  "workflow_meta": {
+    "id": "post__linkedin__company_update",
+    "goal": "Publish company updates and announcements to LinkedIn with optimal timing",
+    "category": "social",
+    "complexity": "simple",
+    "execution_time": "3-4 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["linkedin_api"],
+    "tags": ["linkedin", "social-media", "company", "announcement", "scheduling"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "object",
+          "properties": {
+            "text": {"type": "string", "description": "Main post content"},
+            "media": {"type": "array", "items": {"type": "string"}, "description": "Media URLs"},
+            "link": {"type": "string", "description": "Optional link to share"},
+            "hashtags": {"type": "array", "items": {"type": "string"}, "description": "Hashtags to include"}
+          }
+        },
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "company_page_id": {"type": "string", "description": "LinkedIn company page identifier"},
+        "scheduling": {
+          "type": "object",
+          "properties": {
+            "immediate": {"type": "boolean", "default": true},
+            "scheduled_time": {"type": "string", "format": "date-time"},
+            "timezone": {"type": "string", "default": "UTC"}
+          }
+        },
+        "targeting": {
+          "type": "object",
+          "properties": {
+            "locations": {"type": "array", "items": {"type": "string"}},
+            "industries": {"type": "array", "items": {"type": "string"}},
+            "seniority": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      },
+      "required": ["content", "tenant_id", "company_page_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "post_id": "LinkedIn post identifier",
+      "post_url": "direct link to the post",
+      "scheduled_time": "when post was/will be published",
+      "reach_estimate": "estimated audience size",
+      "status": "published|scheduled"
+    },
+    "error": {
+      "error_code": "AUTH_FAILED|CONTENT_REJECTED|RATE_LIMITED|INVALID_MEDIA",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "api_call",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Format content and validate media",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Validate media URLs and content length"
+      },
+      {
+        "type": "HTTP Request",
+        "purpose": "Upload media to LinkedIn if provided",
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.linkedin.com/v2/assets?action=registerUpload",
+          "authentication": "oAuth2"
+        },
+        "error_handling": "Continue without media on upload failure"
+      },
+      {
+        "type": "HTTP Request",
+        "purpose": "Create LinkedIn company post",
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.linkedin.com/v2/ugcPosts",
+          "authentication": "oAuth2",
+          "headers": {
+            "X-Restli-Protocol-Version": "2.0.0",
+            "Content-Type": "application/json"
+          }
+        },
+        "credentials": "linkedin_api",
+        "error_handling": "Retry on rate limits"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Log social media activity",
+        "parameters": {
+          "operation": "insert",
+          "table": "social_media_posts"
+        },
+        "error_handling": "Continue on logging failure"
+      }
+    ],
+    "supabase_tables": ["social_media_posts", "company_profiles"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "15 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "content": {
+        "text": "Excited to announce our Q4 results! Record growth of 150% YoY thanks to our amazing team and loyal customers. Here's to an even better 2024! 🚀",
+        "media": ["https://company.com/images/q4-results-infographic.jpg"],
+        "link": "https://company.com/blog/q4-2023-results",
+        "hashtags": ["#Q4Results", "#Growth", "#TeamWork", "#CustomerSuccess"]
+      },
+      "tenant_id": "tenant_789",
+      "company_page_id": "12345678",
+      "scheduling": {
+        "immediate": false,
+        "scheduled_time": "2024-01-15T09:00:00Z",
+        "timezone": "America/New_York"
+      },
+      "targeting": {
+        "locations": ["United States", "Canada"],
+        "industries": ["Technology", "Software"],
+        "seniority": ["Manager", "Director", "VP"]
+      }
+    },
+    "output": {
+      "post_id": "urn:li:ugcPost:6890123456789",
+      "post_url": "https://www.linkedin.com/feed/update/urn:li:ugcPost:6890123456789",
+      "scheduled_time": "2024-01-15T14:00:00Z",
+      "reach_estimate": 15000,
+      "status": "scheduled"
+    },
+    "explanation": "Company update scheduled for optimal engagement time with targeted audience reach"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["generate__report__social_analytics", "schedule__social__content_calendar"],
+    "input_from": ["validate__content__company_guidelines"],
+    "output_to": ["track__engagement__social_metrics"]
+  }
+}

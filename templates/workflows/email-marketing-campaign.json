@@ -1,0 +1,245 @@
+{
+  "name": "Email Marketing Campaign Automation",
+  "id": "email_marketing_campaign_template",
+  "category": "communication",
+  "description": "Complete email marketing automation with personalization, scheduling, and analytics tracking",
+  "version": "1.0.0",
+  "complexity": "medium",
+  "reuse_potential": "high",
+  "tags": ["email", "marketing", "automation", "personalization", "analytics"],
+  "created_at": "2025-06-30T00:00:00Z",
+  "updated_at": "2025-06-30T00:00:00Z",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "email-campaign",
+        "options": {},
+        "authentication": "none"
+      },
+      "id": "webhook-trigger",
+      "name": "Campaign Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "email-campaign-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input2",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "campaign_type_check",
+              "leftValue": "={{ $json.campaign_type }}",
+              "rightValue": "immediate",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "campaign-type-switch",
+      "name": "Campaign Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Personalize email content for each subscriber\nconst campaignData = $input.first()?.json || {};\nconst subscribers = $input.all();\n\nconst personalizedEmails = subscribers.map(subscriber => {\n  const user = subscriber.json;\n  \n  let personalizedSubject = campaignData.email_subject || 'Hello {{first_name}}';\n  let personalizedContent = campaignData.email_content || 'Hi {{first_name}}!';\n  \n  personalizedSubject = personalizedSubject\n    .replace(/{{first_name}}/g, user.first_name || 'Valued Customer')\n    .replace(/{{company}}/g, user.company || '');\n    \n  personalizedContent = personalizedContent\n    .replace(/{{first_name}}/g, user.first_name || 'Valued Customer')\n    .replace(/{{email}}/g, user.email)\n    .replace(/{{company}}/g, user.company || '')\n    .replace(/{{unsubscribe_link}}/g, `https://yourdomain.com/unsubscribe?token=${user.unsubscribe_token}`);\n  \n  return {\n    email: user.email,\n    first_name: user.first_name,\n    subject: personalizedSubject,\n    content: personalizedContent,\n    user_id: user.id,\n    campaign_id: campaignData.campaign_id\n  };\n});\n\nreturn personalizedEmails;"
+      },
+      "id": "personalize-emails",
+      "name": "Personalize Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "message": {
+          "to": [
+            {
+              "email": "={{ $json.email }}",
+              "name": "={{ $json.first_name }}"
+            }
+          ],
+          "subject": "={{ $json.subject }}",
+          "htmlBody": "={{ $json.content }}",
+          "from": {
+            "email": "noreply@yourdomain.com",
+            "name": "Your Company"
+          }
+        },
+        "options": {
+          "headers": [
+            {
+              "name": "X-Campaign-ID",
+              "value": "={{ $json.campaign_id }}"
+            }
+          ]
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1120, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "email_analytics"
+        },
+        "columns": {
+          "values": [
+            {
+              "column": "campaign_id",
+              "value": "={{ $json.campaign_id }}"
+            },
+            {
+              "column": "user_id", 
+              "value": "={{ $json.user_id }}"
+            },
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "column": "status",
+              "value": "sent"
+            },
+            {
+              "column": "sent_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "track-analytics",
+      "name": "Track Analytics",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-main",
+          "name": "Supabase Main"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Campaign Trigger": {
+      "main": [
+        [
+          {
+            "node": "Campaign Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign Type": {
+      "main": [
+        [
+          {
+            "node": "Fetch Subscribers",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Subscribers": {
+      "main": [
+        [
+          {
+            "node": "Personalize Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Personalize Content": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Track Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": {
+      "id": "error_handler_workflow"
+    }
+  },
+  "staticData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "template"
+  },
+  "documentation": {
+    "description": "Automated email marketing campaign with personalization and tracking",
+    "setup_instructions": [
+      "1. Configure Gmail OAuth credentials for sending emails",
+      "2. Set up Supabase with email_subscribers and email_analytics tables",
+      "3. Create webhook endpoint for triggering campaigns",
+      "4. Customize email templates and personalization rules"
+    ],
+    "required_credentials": [
+      "Gmail OAuth2",
+      "Supabase API"
+    ],
+    "environment_variables": [
+      "SUPABASE_URL",
+      "SUPABASE_KEY"
+    ]
+  }
+}

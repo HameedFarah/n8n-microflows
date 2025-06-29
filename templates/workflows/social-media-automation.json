@@ -1,0 +1,471 @@
+{
+  "name": "Social Media Content Automation",
+  "id": "social_media_automation_template",
+  "category": "social",
+  "description": "Automated social media posting with content generation, scheduling, and cross-platform distribution",
+  "version": "2.0.0",
+  "complexity": "complex",
+  "reuse_potential": "high",
+  "tags": ["social-media", "automation", "content", "ai-generation", "scheduling"],
+  "created_at": "2025-06-30T00:00:00Z",
+  "updated_at": "2025-06-30T00:00:00Z",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 14,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 18,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "content-schedule",
+      "name": "Content Schedule",
+      "type": "n8n-nodes-base.schedule",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process and customize content for each platform\nconst content = $json;\n\n// Platform-specific customizations\nconst platforms = content.platforms || ['twitter', 'linkedin'];\nconst processedContent = [];\n\nfor (const platform of platforms) {\n  let postText = content.post_text;\n  let hashtags = content.hashtags || [];\n  \n  switch (platform) {\n    case 'twitter':\n      if (postText.length > 250) {\n        postText = postText.substring(0, 247) + '...';\n      }\n      hashtags = hashtags.slice(0, 3);\n      break;\n      \n    case 'linkedin':\n      postText = content.linkedin_version || postText;\n      hashtags = hashtags.slice(0, 5);\n      break;\n      \n    case 'facebook':\n      postText = content.facebook_version || postText;\n      break;\n  }\n  \n  const finalText = `${postText}\\n\\n${hashtags.map(tag => `#${tag}`).join(' ')}`;\n  \n  processedContent.push({\n    platform,\n    content_id: content.id,\n    post_text: finalText,\n    image_url: content.image_url,\n    scheduled_time: content.scheduled_for,\n    priority: content.priority\n  });\n}\n\nreturn processedContent;"
+      },
+      "id": "process-content",
+      "name": "Process Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "twitter_check",
+              "leftValue": "={{ $json.platform }}",
+              "rightValue": "twitter",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "linkedin_check", 
+              "leftValue": "={{ $json.platform }}",
+              "rightValue": "linkedin",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "facebook_check",
+              "leftValue": "={{ $json.platform }}",
+              "rightValue": "facebook", 
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "platform-router",
+      "name": "Route by Platform",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "text": "={{ $json.post_text }}",
+        "additionalFields": {
+          "attachments": "={{ $json.image_url ? [{ 'media_url': $json.image_url }] : [] }}"
+        }
+      },
+      "id": "post-twitter",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [1340, 200],
+      "credentials": {
+        "twitterOAuth2Api": {
+          "id": "twitter-oauth",
+          "name": "Twitter OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "text": "={{ $json.post_text }}",
+        "additionalFields": {
+          "visibility": "public"
+        }
+      },
+      "id": "post-linkedin",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "linkedin-oauth",
+          "name": "LinkedIn OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "pageId": "={{ $parameter.facebookPageId }}",
+        "content": "={{ $json.post_text }}",
+        "additionalFields": {
+          "link": "={{ $json.image_url }}"
+        }
+      },
+      "id": "post-facebook",
+      "name": "Post to Facebook",
+      "type": "n8n-nodes-base.facebookGraph",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "facebook-graph",
+          "name": "Facebook Graph"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "content_queue"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "condition": "equal",
+              "value": "={{ $json.content_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "values": [
+            {
+              "column": "status",
+              "value": "posted"
+            },
+            {
+              "column": "posted_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "column": "platform_response",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      },
+      "id": "update-status",
+      "name": "Update Post Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-main",
+          "name": "Supabase Main"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "social_analytics"
+        },
+        "columns": {
+          "values": [
+            {
+              "column": "content_id",
+              "value": "={{ $json.content_id }}"
+            },
+            {
+              "column": "platform",
+              "value": "={{ $json.platform }}"
+            },
+            {
+              "column": "post_id",
+              "value": "={{ $json.id || $json.response_id }}"
+            },
+            {
+              "column": "posted_at",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "column": "status",
+              "value": "success"
+            }
+          ]
+        }
+      },
+      "id": "track-analytics",
+      "name": "Track Analytics",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-main",
+          "name": "Supabase Main"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "message": {
+          "to": [
+            {
+              "email": "marketing@yourdomain.com",
+              "name": "Marketing Team"
+            }
+          ],
+          "subject": "📱 Social Media Posts Published",
+          "htmlBody": "<h2>Social Media Automation Report</h2><p>The following posts have been successfully published:</p><ul><li>Platform: {{ $json.platform }}</li><li>Content ID: {{ $json.content_id }}</li><li>Posted at: {{ new Date().toLocaleString() }}</li></ul>",
+          "from": {
+            "email": "automation@yourdomain.com",
+            "name": "Social Media Bot"
+          }
+        }
+      },
+      "id": "notify-team",
+      "name": "Notify Marketing Team",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2000, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail OAuth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Content Schedule": {
+      "main": [
+        [
+          {
+            "node": "Fetch Scheduled Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Scheduled Content": {
+      "main": [
+        [
+          {
+            "node": "Process Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Content": {
+      "main": [
+        [
+          {
+            "node": "Route by Platform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Platform": {
+      "main": [
+        [
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Update Post Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Update Post Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Facebook": {
+      "main": [
+        [
+          {
+            "node": "Update Post Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Post Status": {
+      "main": [
+        [
+          {
+            "node": "Track Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Analytics": {
+      "main": [
+        [
+          {
+            "node": "Notify Marketing Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": {
+      "id": "social_media_error_handler"
+    }
+  },
+  "staticData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "template"
+  },
+  "documentation": {
+    "description": "Automated social media content distribution with cross-platform posting and analytics tracking",
+    "setup_instructions": [
+      "1. Configure OAuth credentials for Twitter, LinkedIn, and Facebook",
+      "2. Set up Supabase database with content_queue and social_analytics tables", 
+      "3. Configure OpenAI API for content generation (optional)",
+      "4. Set up Gmail OAuth for team notifications",
+      "5. Customize posting schedule in the Schedule node",
+      "6. Add content to the content_queue table for automated posting"
+    ],
+    "required_credentials": [
+      "Twitter OAuth2 API",
+      "LinkedIn OAuth2 API", 
+      "Facebook Graph API",
+      "Supabase API",
+      "Gmail OAuth2",
+      "OpenAI API (optional)"
+    ],
+    "database_schema": {
+      "content_queue": {
+        "id": "UUID PRIMARY KEY",
+        "post_text": "TEXT NOT NULL",
+        "platforms": "JSONB",
+        "hashtags": "JSONB",
+        "image_url": "VARCHAR",
+        "scheduled_for": "TIMESTAMP",
+        "priority": "INTEGER DEFAULT 1",
+        "status": "VARCHAR DEFAULT 'pending'",
+        "posted_at": "TIMESTAMP",
+        "created_at": "TIMESTAMP DEFAULT NOW()"
+      },
+      "social_analytics": {
+        "id": "UUID PRIMARY KEY",
+        "content_id": "UUID REFERENCES content_queue(id)",
+        "platform": "VARCHAR NOT NULL",
+        "post_id": "VARCHAR",
+        "posted_at": "TIMESTAMP",
+        "status": "VARCHAR",
+        "engagement_metrics": "JSONB",
+        "created_at": "TIMESTAMP DEFAULT NOW()"
+      }
+    },
+    "usage_examples": [
+      {
+        "title": "Schedule a multi-platform post",
+        "description": "Insert content into content_queue table",
+        "sql": "INSERT INTO content_queue (post_text, platforms, hashtags, scheduled_for) VALUES ('Check out our latest feature! 🚀', '[\"twitter\", \"linkedin\"]', '[\"product\", \"innovation\", \"startup\"]', '2025-07-01 09:00:00');"
+      }
+    ]
+  }
+}

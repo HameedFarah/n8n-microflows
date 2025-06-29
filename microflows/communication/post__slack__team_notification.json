@@ -1,0 +1,112 @@
+{
+  "workflow_meta": {
+    "id": "post__slack__team_notification",
+    "goal": "Send structured notifications to Slack channels with thread management",
+    "category": "communication",
+    "complexity": "simple",
+    "execution_time": "2-3 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["slack_api"],
+    "tags": ["slack", "notification", "team", "messaging"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "channel": {"type": "string", "description": "Slack channel name or ID"},
+        "message": {"type": "string", "description": "Main message content"},
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"], "description": "Message priority level"},
+        "thread_ts": {"type": "string", "description": "Optional: Reply to existing thread"},
+        "mentions": {"type": "array", "items": {"type": "string"}, "description": "User IDs to mention"},
+        "attachments": {"type": "array", "description": "Optional file attachments"},
+        "metadata": {"type": "object", "description": "Additional context data"}
+      },
+      "required": ["channel", "message", "tenant_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "message_ts": "timestamp of sent message",
+      "channel_id": "channel where message was sent",
+      "permalink": "permanent link to message",
+      "status": "sent"
+    },
+    "error": {
+      "error_code": "CHANNEL_NOT_FOUND|RATE_LIMITED|AUTH_FAILED",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "api_call",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Format message with mentions and priority",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Sanitize input data"
+      },
+      {
+        "type": "Slack",
+        "purpose": "Send message to channel",
+        "parameters": {
+          "operation": "postMessage",
+          "channel": "={{$node['Code'].json['formatted_channel']}}",
+          "text": "={{$node['Code'].json['formatted_message']}}",
+          "thread_ts": "={{$node['Code'].json['thread_ts']}}",
+          "link_names": true
+        },
+        "credentials": "slack_api",
+        "error_handling": "Retry on rate limits"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Log message delivery",
+        "parameters": {
+          "operation": "insert",
+          "table": "communication_logs"
+        },
+        "error_handling": "Continue on logging failure"
+      }
+    ],
+    "supabase_tables": ["communication_logs", "tenant_slack_configs"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "10 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "channel": "#engineering",
+      "message": "Deployment completed successfully for v2.1.0",
+      "tenant_id": "tenant_123",
+      "priority": "medium",
+      "mentions": ["U1234567890", "U0987654321"],
+      "metadata": {
+        "deployment_id": "dep_456",
+        "environment": "production"
+      }
+    },
+    "output": {
+      "message_ts": "1640995200.123456",
+      "channel_id": "C1234567890",
+      "permalink": "https://workspace.slack.com/archives/C1234567890/p1640995200123456",
+      "status": "sent"
+    },
+    "explanation": "Message sent to engineering channel with user mentions and deployment metadata"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["route__approval__manager_review", "generate__report__deployment_status"],
+    "input_from": ["trigger__webhook__deployment_complete"],
+    "output_to": ["store__log__communication_history"]
+  }
+}

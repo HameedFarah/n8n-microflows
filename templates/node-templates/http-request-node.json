@@ -1,0 +1,57 @@
+{
+  "type": "HTTP Request",
+  "purpose": "API endpoint communication",
+  "parameters": {
+    "authentication": "{{authentication_type}}",
+    "method": "{{http_method}}",
+    "url": "{{api_endpoint}}",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "{{authorization_header}}"
+    },
+    "sendQuery": false,
+    "sendHeaders": true,
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "{{request_body}}",
+    "options": {
+      "timeout": 30000,
+      "response": {
+        "response": {
+          "fullResponse": false,
+          "responseFormat": "json"
+        }
+      }
+    }
+  },
+  "credentials": "{{credential_name}}",
+  "error_handling": "{{error_strategy}}",
+  "description": "Standard HTTP Request node template for API integrations",
+  "common_configurations": {
+    "GET_request": {
+      "method": "GET",
+      "sendBody": false,
+      "sendQuery": true
+    },
+    "POST_request": {
+      "method": "POST",
+      "sendBody": true,
+      "jsonBody": "{{ $json }}"
+    },
+    "PUT_request": {
+      "method": "PUT",
+      "sendBody": true,
+      "jsonBody": "{{ $json }}"
+    },
+    "DELETE_request": {
+      "method": "DELETE",
+      "sendBody": false
+    }
+  },
+  "typical_use_cases": [
+    "REST API integration",
+    "Webhook calls",
+    "Data submission",
+    "External service communication"
+  ]
+}

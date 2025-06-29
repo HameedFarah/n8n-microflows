@@ -1,0 +1,152 @@
+{
+  "workflow_meta": {
+    "id": "validate__input__contract_upload",
+    "goal": "Validate uploaded contract files for legal compliance and data extraction",
+    "category": "validation",
+    "complexity": "medium",
+    "execution_time": "5-8 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["file_upload_service", "legal_compliance_api"],
+    "tags": ["contract", "legal", "validation", "file-processing"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "file_url": {"type": "string", "description": "URL of uploaded contract file"},
+        "file_type": {"type": "string", "description": "MIME type of uploaded file"},
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "contract_type": {"type": "string", "description": "Type of contract (NDA, Service, etc.)"},
+        "requester_email": {"type": "string", "description": "Email of person uploading"}
+      },
+      "required": ["file_url", "file_type", "tenant_id"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "validation_status": "valid",
+      "extracted_data": {
+        "parties": ["array of contract parties"],
+        "key_terms": {"object with key contract terms"},
+        "expiry_date": "contract expiration date",
+        "compliance_score": "0.0-1.0"
+      },
+      "suggested_actions": ["array of recommended next steps"]
+    },
+    "error": {
+      "error_code": "VALIDATION_FAILED|FILE_CORRUPTED|UNSUPPORTED_FORMAT",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Webhook",
+        "purpose": "Receive contract upload notification",
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "/validate-contract",
+          "authentication": "headerAuth"
+        },
+        "error_handling": "Return 400 for invalid requests"
+      },
+      {
+        "type": "Code",
+        "purpose": "Validate file format and size",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle unsupported formats gracefully"
+      },
+      {
+        "type": "HTTP Request",
+        "purpose": "Download file for processing",
+        "parameters": {
+          "method": "GET",
+          "url": "={{$node['Webhook'].json['file_url']}}",
+          "timeout": 30000
+        },
+        "error_handling": "Retry on network failures"
+      },
+      {
+        "type": "Code",
+        "purpose": "Extract text from document",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle OCR failures"
+      },
+      {
+        "type": "OpenAI",
+        "purpose": "Analyze contract content",
+        "parameters": {
+          "model": "gpt-4",
+          "prompt_template_id": "contract_analysis",
+          "maxTokens": 1000,
+          "temperature": 0.1
+        },
+        "credentials": "openai_api",
+        "error_handling": "Fallback to rule-based analysis"
+      },
+      {
+        "type": "Code",
+        "purpose": "Format analysis results",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Ensure valid output format"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Log validation results",
+        "parameters": {
+          "operation": "insert",
+          "table": "contract_validations"
+        },
+        "error_handling": "Continue on logging failure"
+      }
+    ],
+    "supabase_tables": ["contract_validations", "tenant_configs"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "30 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "file_url": "https://storage.example.com/contracts/nda_123.pdf",
+      "file_type": "application/pdf",
+      "tenant_id": "tenant_456",
+      "contract_type": "NDA",
+      "requester_email": "legal@company.com"
+    },
+    "output": {
+      "validation_status": "valid",
+      "extracted_data": {
+        "parties": ["Company A Inc.", "Company B LLC"],
+        "key_terms": {
+          "confidentiality_period": "2 years",
+          "jurisdiction": "Delaware",
+          "effective_date": "2024-01-15"
+        },
+        "expiry_date": "2026-01-15",
+        "compliance_score": 0.95
+      },
+      "suggested_actions": ["review_key_terms", "schedule_renewal_reminder"]
+    },
+    "explanation": "Contract successfully validated, key terms extracted, high compliance score indicates thorough legal review"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["store__legal__contract_database", "enrich__gpt__contract_summary"],
+    "input_from": ["upload__file__contract_portal"],
+    "output_to": ["route__approval__legal_review"]
+  }
+}

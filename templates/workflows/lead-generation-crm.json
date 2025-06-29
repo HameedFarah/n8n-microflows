@@ -1,0 +1,394 @@
+{
+  "name": "Lead Generation and CRM Integration",
+  "id": "lead_generation_crm_template",
+  "category": "data",
+  "description": "Automated lead capture, enrichment, scoring, and CRM integration with follow-up workflows",
+  "version": "1.0.0",
+  "complexity": "complex",
+  "reuse_potential": "high",
+  "tags": ["lead-generation", "crm", "automation", "data-enrichment", "scoring"],
+  "created_at": "2025-06-30T00:00:00Z",
+  "updated_at": "2025-06-30T00:00:00Z",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "lead-capture",
+        "options": {
+          "allowedMethods": ["POST"]
+        },
+        "authentication": "none"
+      },
+      "id": "lead-webhook",
+      "name": "Lead Capture Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "lead-capture-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and clean incoming lead data\nconst rawLead = $json;\n\n// Required fields validation\nconst requiredFields = ['email', 'first_name', 'company'];\nconst missingFields = requiredFields.filter(field => !rawLead[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Missing required fields: ${missingFields.join(', ')}`);\n}\n\n// Clean and normalize data\nconst cleanedLead = {\n  id: `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  email: rawLead.email.toLowerCase().trim(),\n  first_name: rawLead.first_name.trim(),\n  last_name: (rawLead.last_name || '').trim(),\n  company: rawLead.company.trim(),\n  phone: rawLead.phone ? rawLead.phone.replace(/[^\\d+]/g, '') : null,\n  website: rawLead.website ? rawLead.website.toLowerCase() : null,\n  job_title: rawLead.job_title || null,\n  lead_source: rawLead.lead_source || 'website',\n  campaign_id: rawLead.campaign_id || null,\n  utm_source: rawLead.utm_source || null,\n  utm_medium: rawLead.utm_medium || null,\n  utm_campaign: rawLead.utm_campaign || null,\n  created_at: new Date().toISOString(),\n  status: 'new',\n  score: 0\n};\n\nreturn [cleanedLead];"
+      },
+      "id": "validate-lead",
+      "name": "Validate & Clean Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.clearbit.com/v2/enrichment/find",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        }
+      },
+      "id": "enrich-lead",
+      "name": "Enrich Lead Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "clearbit-api",
+          "name": "Clearbit API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine original lead data with enrichment data\nconst originalLead = $input.first().json;\nconst enrichmentData = $input.last().json;\n\n// Merge enriched data if available\nlet enrichedLead = { ...originalLead };\n\nif (enrichmentData && !enrichmentData.error) {\n  // Person data\n  if (enrichmentData.person) {\n    enrichedLead.first_name = enrichmentData.person.name?.givenName || enrichedLead.first_name;\n    enrichedLead.last_name = enrichmentData.person.name?.familyName || enrichedLead.last_name;\n    enrichedLead.job_title = enrichmentData.person.employment?.title || enrichedLead.job_title;\n    enrichedLead.linkedin = enrichmentData.person.linkedin?.handle || null;\n    enrichedLead.twitter = enrichmentData.person.twitter?.handle || null;\n    enrichedLead.location = enrichmentData.person.location || null;\n  }\n  \n  // Company data\n  if (enrichmentData.company) {\n    enrichedLead.company_domain = enrichmentData.company.domain || null;\n    enrichedLead.company_size = enrichmentData.company.metrics?.employees || null;\n    enrichedLead.company_industry = enrichmentData.company.category?.industry || null;\n    enrichedLead.company_funding = enrichmentData.company.metrics?.raised || null;\n    enrichedLead.company_tech_stack = enrichmentData.company.tech || null;\n  }\n  \n  enrichedLead.enriched = true;\n} else {\n  enrichedLead.enriched = false;\n  enrichedLead.enrichment_error = enrichmentData?.error || 'No data found';\n}\n\nreturn [enrichedLead];"
+      },
+      "id": "merge-enrichment",
+      "name": "Merge Enrichment Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate lead score based on various factors\nconst lead = $json;\nlet score = 0;\n\n// Email domain scoring\nif (lead.email) {\n  const domain = lead.email.split('@')[1];\n  const businessDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'];\n  \n  if (!businessDomains.includes(domain)) {\n    score += 20; // Business email\n  }\n}\n\n// Job title scoring\nif (lead.job_title) {\n  const seniorTitles = ['ceo', 'cto', 'cfo', 'vp', 'director', 'manager', 'head'];\n  const title = lead.job_title.toLowerCase();\n  \n  if (seniorTitles.some(t => title.includes(t))) {\n    score += 30; // Senior position\n  }\n}\n\n// Company size scoring\nif (lead.company_size) {\n  if (lead.company_size >= 1000) score += 25; // Enterprise\n  else if (lead.company_size >= 100) score += 20; // Mid-market\n  else if (lead.company_size >= 10) score += 15; // SMB\n}\n\n// Industry scoring\nif (lead.company_industry) {\n  const targetIndustries = ['technology', 'software', 'saas', 'fintech'];\n  if (targetIndustries.some(i => lead.company_industry.toLowerCase().includes(i))) {\n    score += 15; // Target industry\n  }\n}\n\n// Funding scoring\nif (lead.company_funding && lead.company_funding > 1000000) {\n  score += 20; // Well-funded company\n}\n\n// Lead source scoring\nif (lead.lead_source === 'referral') score += 25;\nelse if (lead.lead_source === 'organic') score += 15;\nelse if (lead.lead_source === 'direct') score += 10;\n\n// UTM campaign scoring\nif (lead.utm_campaign && lead.utm_campaign.includes('enterprise')) {\n  score += 15;\n}\n\n// Assign grade based on score\nlet grade = 'D';\nif (score >= 80) grade = 'A';\nelse if (score >= 60) grade = 'B';\nelse if (score >= 40) grade = 'C';\n\nlead.score = Math.min(score, 100); // Cap at 100\nlead.grade = grade;\nlead.scored_at = new Date().toISOString();\n\nreturn [lead];"
+      },
+      "id": "score-lead",
+      "name": "Calculate Lead Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "leads"
+        },
+        "columns": {
+          "values": [
+            {
+              "column": "id",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "column": "email",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "column": "first_name",
+              "value": "={{ $json.first_name }}"
+            },
+            {
+              "column": "last_name",
+              "value": "={{ $json.last_name }}"
+            },
+            {
+              "column": "company",
+              "value": "={{ $json.company }}"
+            },
+            {
+              "column": "job_title",
+              "value": "={{ $json.job_title }}"
+            },
+            {
+              "column": "phone",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "column": "lead_source",
+              "value": "={{ $json.lead_source }}"
+            },
+            {
+              "column": "score",
+              "value": "={{ $json.score }}"
+            },
+            {
+              "column": "grade",
+              "value": "={{ $json.grade }}"
+            },
+            {
+              "column": "status",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "column": "enriched_data",
+              "value": "={{ JSON.stringify($json) }}"
+            },
+            {
+              "column": "created_at",
+              "value": "={{ $json.created_at }}"
+            }
+          ]
+        }
+      },
+      "id": "store-lead",
+      "name": "Store Lead in Database",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-main",
+          "name": "Supabase Main"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input1",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high_score_check",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "score-routing",
+      "name": "Route by Score",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "message": {
+          "to": [
+            {
+              "email": "sales@yourdomain.com",
+              "name": "Sales Team"
+            }
+          ],
+          "subject": "🔥 High-Quality Lead Alert: {{ $json.first_name }} {{ $json.last_name }}",
+          "htmlBody": "<h2>New High-Quality Lead (Score: {{ $json.score }})</h2><p><strong>Name:</strong> {{ $json.first_name }} {{ $json.last_name }}</p><p><strong>Email:</strong> {{ $json.email }}</p><p><strong>Company:</strong> {{ $json.company }}</p><p><strong>Job Title:</strong> {{ $json.job_title }}</p><p><strong>Score:</strong> {{ $json.score }}/100 (Grade {{ $json.grade }})</p><p><strong>Lead Source:</strong> {{ $json.lead_source }}</p><p><a href='https://yourcrm.com/leads/{{ $json.id }}'>View in CRM</a></p>",
+          "from": {
+            "email": "noreply@yourdomain.com",
+            "name": "Lead System"
+          }
+        }
+      },
+      "id": "notify-sales",
+      "name": "Notify Sales Team",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1780, 200],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail OAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "message": {
+          "to": [
+            {
+              "email": "{{ $json.email }}",
+              "name": "{{ $json.first_name }} {{ $json.last_name }}"
+            }
+          ],
+          "subject": "Welcome {{ $json.first_name }}! Thanks for your interest",
+          "htmlBody": "<h2>Hi {{ $json.first_name }},</h2><p>Thank you for your interest in our product! We're excited to help {{ $json.company }} achieve its goals.</p><p>Based on your role as {{ $json.job_title }}, I think you'll find our enterprise features particularly valuable.</p><p>I'll be in touch soon to schedule a personalized demo.</p><p>Best regards,<br>The Sales Team</p>",
+          "from": {
+            "email": "sales@yourdomain.com",
+            "name": "Sales Team"
+          }
+        }
+      },
+      "id": "send-welcome-email",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1780, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail OAuth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Clean Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Clean Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Enrich Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Enrichment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Enrichment Data": {
+      "main": [
+        [
+          {
+            "node": "Calculate Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Lead Score": {
+      "main": [
+        [
+          {
+            "node": "Store Lead in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Lead in Database": {
+      "main": [
+        [
+          {
+            "node": "Route by Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Score": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "documentation": {
+    "description": "Comprehensive lead generation workflow with data enrichment, scoring, and automated follow-up",
+    "setup_instructions": [
+      "1. Configure Clearbit API for data enrichment",
+      "2. Set up Supabase database with leads table",
+      "3. Configure Gmail OAuth for notifications",
+      "4. Customize scoring algorithm based on your criteria",
+      "5. Set up webhook endpoint for lead capture forms"
+    ],
+    "required_credentials": [
+      "Clearbit API",
+      "Supabase API", 
+      "Gmail OAuth2"
+    ],
+    "database_schema": {
+      "leads": {
+        "id": "VARCHAR PRIMARY KEY",
+        "email": "VARCHAR UNIQUE NOT NULL",
+        "first_name": "VARCHAR",
+        "last_name": "VARCHAR",
+        "company": "VARCHAR",
+        "job_title": "VARCHAR",
+        "phone": "VARCHAR",
+        "lead_source": "VARCHAR",
+        "score": "INTEGER",
+        "grade": "VARCHAR(1)",
+        "status": "VARCHAR",
+        "enriched_data": "JSONB",
+        "created_at": "TIMESTAMP"
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "type": "Gmail",
+  "purpose": "Email operations and automation",
+  "parameters": {
+    "operation": "{{email_operation}}",
+    "options": {}
+  },
+  "credentials": "gmailOAuth2",
+  "error_handling": "{{error_strategy}}",
+  "description": "Gmail node template for email automation",
+  "common_configurations": {
+    "send_email": {
+      "operation": "send",
+      "to": "{{recipient_email}}",
+      "subject": "{{email_subject}}",
+      "message": "{{email_body}}",
+      "options": {
+        "bodyType": "html",
+        "attachments": "{{attachment_field}}"
+      }
+    },
+    "read_emails": {
+      "operation": "getAll",
+      "filters": {
+        "q": "{{search_query}}",
+        "maxResults": 50
+      },
+      "options": {
+        "format": "full",
+        "includeSpamTrash": false
+      }
+    },
+    "reply_to_email": {
+      "operation": "reply",
+      "messageId": "{{ $json.id }}",
+      "message": "{{reply_body}}",
+      "options": {
+        "bodyType": "html"
+      }
+    },
+    "mark_as_read": {
+      "operation": "addLabels",
+      "messageId": "{{ $json.id }}",
+      "labelIds": ["UNREAD"]
+    }
+  },
+  "typical_use_cases": [
+    "Automated email responses",
+    "Email processing and filtering",
+    "Customer support automation",
+    "Notification systems"
+  ],
+  "best_practices": [
+    "Use OAuth2 authentication",
+    "Implement rate limiting",
+    "Handle bounced emails",
+    "Respect recipient preferences"
+  ],
+  "filters_examples": {
+    "unread_from_domain": "is:unread from:@example.com",
+    "recent_with_subject": "newer_than:1d subject:urgent",
+    "with_attachment": "has:attachment",
+    "starred_emails": "is:starred"
+  }
+}

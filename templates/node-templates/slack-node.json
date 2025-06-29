@@ -1,0 +1,144 @@
+{
+  "id": "slack-template",
+  "name": "Slack",
+  "type": "n8n-nodes-base.slack",
+  "typeVersion": 2,
+  "position": [300, 300],
+  "parameters": {
+    "authentication": "slackApi",
+    "channel": "",
+    "text": "",
+    "resource": "message",
+    "operation": "post"
+  },
+  "credentials": {
+    "slackApi": {
+      "id": "{{ slack_credential_id }}",
+      "name": "Slack API"
+    }
+  },
+  "templates": {
+    "send_message": {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channel": "#general",
+        "text": "{{ message_content }}"
+      },
+      "description": "Send a simple text message to a Slack channel"
+    },
+    "send_rich_message": {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channel": "#notifications",
+        "text": "{{ message_title }}",
+        "attachments": [
+          {
+            "color": "good",
+            "fields": [
+              {
+                "title": "Status",
+                "value": "{{ status }}",
+                "short": true
+              },
+              {
+                "title": "Details",
+                "value": "{{ details }}",
+                "short": false
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Send a rich message with attachments and formatting"
+    },
+    "send_file": {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "channels": "#files",
+        "binaryData": true,
+        "title": "{{ file_title }}",
+        "initialComment": "{{ file_description }}"
+      },
+      "description": "Upload a file to a Slack channel"
+    },
+    "create_channel": {
+      "parameters": {
+        "resource": "channel",
+        "operation": "create",
+        "name": "{{ channel_name }}",
+        "isPrivate": false
+      },
+      "description": "Create a new public Slack channel"
+    },
+    "get_user_info": {
+      "parameters": {
+        "resource": "user",
+        "operation": "info",
+        "user": "{{ user_id }}"
+      },
+      "description": "Get information about a Slack user"
+    },
+    "list_channels": {
+      "parameters": {
+        "resource": "channel",
+        "operation": "getAll",
+        "returnAll": true
+      },
+      "description": "List all channels in the workspace"
+    }
+  },
+  "validation": {
+    "required_fields": ["channel", "text"],
+    "field_validation": {
+      "channel": {
+        "pattern": "^(#|@)?[a-z0-9-_]+$",
+        "error": "Channel must be a valid Slack channel or user ID"
+      },
+      "text": {
+        "min_length": 1,
+        "max_length": 4000,
+        "error": "Message text must be 1-4000 characters"
+      }
+    }
+  },
+  "error_handling": {
+    "common_errors": {
+      "channel_not_found": {
+        "code": "channel_not_found",
+        "message": "The specified channel does not exist",
+        "retry": false,
+        "suggested_fix": "Check channel name and bot permissions"
+      },
+      "token_revoked": {
+        "code": "token_revoked",
+        "message": "Bot token has been revoked",
+        "retry": false,
+        "suggested_fix": "Update Slack API credentials"
+      },
+      "rate_limited": {
+        "code": "rate_limited",
+        "message": "API rate limit exceeded",
+        "retry": true,
+        "suggested_fix": "Add delay between requests"
+      }
+    }
+  },
+  "documentation": {
+    "description": "Send messages, files, and manage channels in Slack",
+    "use_cases": [
+      "Automated notifications and alerts",
+      "File sharing and document distribution",
+      "Team collaboration and updates",
+      "Customer support notifications",
+      "Workflow status reporting"
+    ],
+    "setup_requirements": [
+      "Slack workspace admin access",
+      "Slack bot token with appropriate permissions",
+      "Channel access permissions for the bot"
+    ]
+  }
+}

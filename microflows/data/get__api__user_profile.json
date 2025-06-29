@@ -1,0 +1,123 @@
+{
+  "workflow_meta": {
+    "id": "get__api__user_profile",
+    "goal": "Retrieve user profile data from external API with caching and error handling",
+    "category": "data",
+    "complexity": "medium",
+    "execution_time": "2-5 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["http_client", "supabase"],
+    "tags": ["api", "user-data", "caching", "error-handling"]
+  },
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "Unique identifier for the user"
+        },
+        "api_endpoint": {
+          "type": "string",
+          "description": "API endpoint URL for user profile"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "API authentication key"
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Required for tenant isolation"
+        },
+        "use_cache": {
+          "type": "boolean",
+          "description": "Whether to use cached data if available",
+          "default": true
+        }
+      },
+      "required": ["user_id", "api_endpoint", "api_key", "tenant_id"]
+    }
+  },
+  "outputs": {
+    "success": {
+      "user_profile": "object",
+      "cached": "boolean",
+      "last_updated": "string",
+      "status": "success"
+    },
+    "error": {
+      "error_code": "USER_PROFILE_FETCH_FAILED",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  "implementation": {
+    "primary_approach": "api_call",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Check cache and prepare request",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle cache lookup errors"
+      },
+      {
+        "type": "HTTP Request",
+        "purpose": "Fetch user profile from API",
+        "parameters": {
+          "method": "GET",
+          "url": "={{$json.api_endpoint}}/users/{{$json.user_id}}",
+          "authentication": "headerAuth",
+          "headerAuth": {
+            "name": "Authorization",
+            "value": "Bearer {{$json.api_key}}"
+          }
+        },
+        "error_handling": "Retry on network errors"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Cache the profile data",
+        "parameters": {
+          "operation": "upsert",
+          "table": "user_profile_cache",
+          "columns": "user_id, profile_data, tenant_id, cached_at"
+        },
+        "error_handling": "Log cache errors but don't fail workflow"
+      }
+    ],
+    "supabase_tables": ["user_profile_cache"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "30 seconds"
+    }
+  },
+  "example": {
+    "input": {
+      "user_id": "user_12345",
+      "api_endpoint": "https://api.example.com",
+      "api_key": "sk-1234567890abcdef",
+      "tenant_id": "tenant_123",
+      "use_cache": true
+    },
+    "output": {
+      "user_profile": {
+        "id": "user_12345",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "created_at": "2024-01-01T00:00:00Z"
+      },
+      "cached": false,
+      "last_updated": "2024-06-29T12:00:00Z",
+      "status": "success"
+    },
+    "explanation": "Fetches user profile from external API and caches result in Supabase for future requests"
+  },
+  "reuse_info": {
+    "compatible_with": ["user_sync_workflows", "profile_validation"],
+    "input_from": ["user_authentication", "api_discovery"],
+    "output_to": ["user_dashboard", "profile_analysis"]
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "id": "google-sheets-template",
+  "name": "Google Sheets",
+  "type": "n8n-nodes-base.googleSheets",
+  "typeVersion": 4,
+  "position": [300, 300],
+  "parameters": {
+    "authentication": "serviceAccount",
+    "resource": "spreadsheet",
+    "operation": "read",
+    "documentId": "",
+    "sheetName": "Sheet1"
+  },
+  "credentials": {
+    "googleSheetsApi": {
+      "id": "{{ google_sheets_credential_id }}",
+      "name": "Google Sheets API"
+    }
+  },
+  "templates": {
+    "read_data": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "read",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ sheet_name }}",
+        "range": "A:Z",
+        "dataMode": "autoMapInputData"
+      },
+      "description": "Read all data from a Google Sheets spreadsheet"
+    },
+    "append_row": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "append",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ sheet_name }}",
+        "dataMode": "autoMapInputData",
+        "valueInputMode": "USER_ENTERED"
+      },
+      "description": "Append a new row to the end of a Google Sheets spreadsheet"
+    },
+    "update_row": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "update",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ sheet_name }}",
+        "dataMode": "autoMapInputData",
+        "keyRow": 1,
+        "dataStartRow": 2,
+        "valueInputMode": "USER_ENTERED"
+      },
+      "description": "Update existing rows in a Google Sheets spreadsheet"
+    },
+    "clear_sheet": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "clear",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ sheet_name }}",
+        "range": "A:Z"
+      },
+      "description": "Clear all data from a Google Sheets range"
+    },
+    "create_sheet": {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "create",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ new_sheet_name }}"
+      },
+      "description": "Create a new sheet within an existing spreadsheet"
+    },
+    "get_values": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "read",
+        "documentId": "{{ spreadsheet_id }}",
+        "sheetName": "{{ sheet_name }}",
+        "range": "{{ cell_range }}",
+        "dataMode": "nothing"
+      },
+      "description": "Get specific cell values from a range"
+    },
+    "batch_update": {
+      "parameters": {
+        "resource": "spreadsheet",
+        "operation": "batchUpdate",
+        "documentId": "{{ spreadsheet_id }}",
+        "requests": [
+          {
+            "updateCells": {
+              "range": {
+                "sheetId": 0,
+                "startRowIndex": 0,
+                "endRowIndex": 1,
+                "startColumnIndex": 0,
+                "endColumnIndex": 3
+              },
+              "rows": [
+                {
+                  "values": [
+                    {"userEnteredValue": {"stringValue": "{{ header1 }}"}},
+                    {"userEnteredValue": {"stringValue": "{{ header2 }}"}},
+                    {"userEnteredValue": {"stringValue": "{{ header3 }}"}}
+                  ]
+                }
+              ],
+              "fields": "userEnteredValue"
+            }
+          }
+        ]
+      },
+      "description": "Perform multiple updates in a single batch operation"
+    }
+  },
+  "validation": {
+    "required_fields": ["documentId"],
+    "field_validation": {
+      "documentId": {
+        "pattern": "^[a-zA-Z0-9-_]{44}$",
+        "error": "Document ID must be a valid Google Sheets ID"
+      },
+      "sheetName": {
+        "min_length": 1,
+        "max_length": 100,
+        "error": "Sheet name must be 1-100 characters"
+      },
+      "range": {
+        "pattern": "^[A-Z]+[0-9]*:[A-Z]+[0-9]*$|^[A-Z]+:[A-Z]+$",
+        "error": "Range must be in A1 notation (e.g., A1:B10 or A:B)"
+      }
+    }
+  },
+  "error_handling": {
+    "common_errors": {
+      "spreadsheet_not_found": {
+        "code": "NOT_FOUND",
+        "message": "Spreadsheet not found or access denied",
+        "retry": false,
+        "suggested_fix": "Check spreadsheet ID and sharing permissions"
+      },
+      "sheet_not_found": {
+        "code": "INVALID_ARGUMENT",
+        "message": "Sheet name does not exist",
+        "retry": false,
+        "suggested_fix": "Verify sheet name spelling and existence"
+      },
+      "quota_exceeded": {
+        "code": "RESOURCE_EXHAUSTED",
+        "message": "Google Sheets API quota exceeded",
+        "retry": true,
+        "suggested_fix": "Add delays between requests or increase quotas"
+      },
+      "permission_denied": {
+        "code": "PERMISSION_DENIED",
+        "message": "Insufficient permissions to access spreadsheet",
+        "retry": false,
+        "suggested_fix": "Grant edit access to service account email"
+      },
+      "invalid_range": {
+        "code": "INVALID_ARGUMENT",
+        "message": "Invalid range specification",
+        "retry": false,
+        "suggested_fix": "Use valid A1 notation (e.g., A1:B10)"
+      }
+    }
+  },
+  "documentation": {
+    "description": "Read, write, and manipulate data in Google Sheets spreadsheets",
+    "use_cases": [
+      "Data collection and form responses",
+      "Automated reporting and dashboards", 
+      "Inventory and asset tracking",
+      "Customer relationship management",
+      "Financial tracking and budgeting",
+      "Project management and task tracking"
+    ],
+    "setup_requirements": [
+      "Google Cloud Platform project",
+      "Google Sheets API enabled",
+      "Service account with JSON key",
+      "Spreadsheet shared with service account email"
+    ],
+    "best_practices": [
+      "Use batch operations for multiple updates",
+      "Implement proper error handling for quota limits",
+      "Cache frequently accessed data",
+      "Use specific ranges instead of entire sheets",
+      "Validate data before writing to sheets"
+    ]
+  }
+}

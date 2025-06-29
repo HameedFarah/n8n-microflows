@@ -1,0 +1,143 @@
+{
+  "workflow_meta": {
+    "id": "validate__gdpr__consent_check",
+    "goal": "Verify GDPR compliance and consent status for data processing activities",
+    "category": "validation",
+    "complexity": "medium",
+    "execution_time": "3-5 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["gdpr_service", "consent_database"],
+    "tags": ["gdpr", "consent", "compliance", "legal", "privacy"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "user_id": {"type": "string", "description": "User identifier"},
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "processing_purpose": {"type": "string", "description": "Purpose of data processing"},
+        "data_categories": {"type": "array", "items": {"type": "string"}, "description": "Types of personal data"},
+        "legal_basis": {"type": "string", "enum": ["consent", "contract", "legal_obligation", "vital_interests", "public_task", "legitimate_interests"]},
+        "processing_location": {"type": "string", "description": "Where data will be processed"},
+        "retention_period": {"type": "string", "description": "How long data will be kept"},
+        "third_party_sharing": {"type": "boolean", "description": "Will data be shared with third parties"}
+      },
+      "required": ["user_id", "tenant_id", "processing_purpose", "data_categories", "legal_basis"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "compliance_status": "compliant|non_compliant|requires_consent",
+      "consent_details": {
+        "status": "given|withdrawn|not_required|pending",
+        "timestamp": "when consent was given/withdrawn",
+        "scope": "what was consented to",
+        "expiry_date": "when consent expires"
+      },
+      "required_actions": ["array of actions needed for compliance"],
+      "risk_assessment": "low|medium|high",
+      "audit_trail": "compliance check reference"
+    },
+    "error": {
+      "error_code": "USER_NOT_FOUND|INVALID_LEGAL_BASIS|CONSENT_EXPIRED",
+      "message": "Human readable error description",
+      "retry_suggested": false
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Supabase",
+        "purpose": "Retrieve user consent records",
+        "parameters": {
+          "operation": "select",
+          "table": "user_consents",
+          "filters": {
+            "user_id": "={{$node['Webhook'].json['user_id']}}",
+            "tenant_id": "={{$node['Webhook'].json['tenant_id']}}"
+          }
+        },
+        "error_handling": "Handle missing user gracefully"
+      },
+      {
+        "type": "Code",
+        "purpose": "Analyze consent status and legal basis",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Default to non-compliant on errors"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Check tenant GDPR configuration",
+        "parameters": {
+          "operation": "select",
+          "table": "tenant_gdpr_configs",
+          "filters": {
+            "tenant_id": "={{$node['Webhook'].json['tenant_id']}}"
+          }
+        },
+        "error_handling": "Use default GDPR settings"
+      },
+      {
+        "type": "Code",
+        "purpose": "Perform compliance validation",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Log validation errors"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Log compliance check for audit",
+        "parameters": {
+          "operation": "insert",
+          "table": "gdpr_audit_logs"
+        },
+        "error_handling": "Continue on audit logging failure"
+      }
+    ],
+    "supabase_tables": ["user_consents", "tenant_gdpr_configs", "gdpr_audit_logs"],
+    "error_handling": {
+      "retry_policy": "none",
+      "timeout": "10 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "user_id": "user_abc123",
+      "tenant_id": "tenant_456",
+      "processing_purpose": "email_marketing",
+      "data_categories": ["email", "name", "preferences"],
+      "legal_basis": "consent",
+      "processing_location": "EU",
+      "retention_period": "2 years",
+      "third_party_sharing": false
+    },
+    "output": {
+      "compliance_status": "compliant",
+      "consent_details": {
+        "status": "given",
+        "timestamp": "2024-01-15T10:30:00Z",
+        "scope": "email_marketing,newsletter",
+        "expiry_date": "2026-01-15T10:30:00Z"
+      },
+      "required_actions": [],
+      "risk_assessment": "low",
+      "audit_trail": "gdpr_check_789456123"
+    },
+    "explanation": "User has valid consent for email marketing with appropriate retention period and EU processing location"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["store__postgres__customer_data", "post__email__marketing_campaign"],
+    "input_from": ["validate__input__data_processing_request"],
+    "output_to": ["route__compliance__approval_required"]
+  }
+}

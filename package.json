@@ -1,33 +1,231 @@
 {
   "name": "n8n-microflows",
   "version": "1.0.0",
-  "description": "Validation and automation scripts for N8N microflows",
+  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery",
   "scripts": {
     "validate": "node scripts/validate-workflow.js",
     "check-naming": "node scripts/check-naming.js",
     "check-docs": "node scripts/check-documentation.js",
     "update-catalog": "node scripts/update-catalog.js",
     "test": "node scripts/test-runner.js",
+    "test:watch": "nodemon scripts/test-runner.js",
+    "test:security": "node scripts/test-runner.js --filter=security",
+    "test:performance": "node scripts/test-runner.js --filter=performance",
+    "test:integration": "node scripts/test-runner.js --filter=integration",
     "setup-supabase": "node scripts/setup-supabase.js",
     "generate-embeddings": "node scripts/generate-embeddings.js",
-    "validate-all": "npm run validate && npm run check-naming && npm run check-docs"
+    "validate-all": "npm run validate && npm run check-naming && npm run check-docs",
+    "claude-validate": "node scripts/claude-real-time-validator.js",
+    "mcp-validate": "node scripts/n8n-mcp-validator.js",
+    "advanced-validate": "node scripts/advanced-validation.js",
+    "pipeline-validate": "node scripts/validation-pipeline-integration.js",
+    "github-sync": "node scripts/github-integration.js",
+    "supabase-sync": "node scripts/supabase-integration.js",
+    "error-analysis": "node scripts/error-handling-framework.js",
+    "vector-search": "node scripts/vector-embedding-system.js",
+    "self-learn": "node scripts/claude-self-learning.js",
+    "health-check": "npm run test -- --filter=integration && npm run validate-all",
+    "fix-common-issues": "npm run check-naming -- --fix && npm run validate -- --auto-fix",
+    "reset-environment": "rm -rf node_modules package-lock.json && npm install && npm run setup-supabase",
+    "dev": "nodemon --watch scripts --watch microflows --ext js,json npm run validate-all",
+    "build": "npm run validate-all && npm run test && npm run generate-embeddings",
+    "start": "npm run validate-all",
+    "lint": "eslint scripts/ --ext .js --fix",
+    "lint:check": "eslint scripts/ --ext .js",
+    "format": "prettier --write 'scripts/**/*.js' 'docs/**/*.md' '*.md'",
+    "format:check": "prettier --check 'scripts/**/*.js' 'docs/**/*.md' '*.md'",
+    "audit:security": "npm audit --audit-level moderate",
+    "audit:fix": "npm audit fix",
+    "deps:update": "npm update && npm audit fix",
+    "deps:check": "npm outdated",
+    "clean": "rm -rf node_modules/.cache test-report.json quality-report.md",
+    "prebuild": "npm run clean",
+    "postinstall": "npm run setup-supabase --if-present"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
-    "glob": "^10.3.0",
-    "@supabase/supabase-js": "^2.39.0",
     "dotenv": "^16.3.1",
-    "openai": "^4.20.0"
+    "glob": "^10.3.0",
+    "openai": "^4.20.0",
+    "sentence-transformers": "^1.0.0",
+    "node-fetch": "^3.3.0",
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "ora": "^7.0.1",
+    "inquirer": "^9.2.0",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "uuid": "^9.0.1",
+    "crypto": "^1.0.1",
+    "fs-extra": "^11.2.0",
+    "path": "^0.12.7",
+    "yaml": "^2.3.4",
+    "markdown-it": "^14.0.0",
+    "jsdom": "^23.0.1",
+    "csv-parser": "^3.0.0",
+    "xml2js": "^0.6.2",
+    "ws": "^8.14.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "rate-limiter-flexible": "^3.0.8",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "joi": "^17.11.0",
+    "axios": "^1.6.2",
+    "retry": "^0.13.1",
+    "p-queue": "^8.0.1",
+    "p-limit": "^5.0.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-security": "^1.7.1",
+    "prettier": "^3.1.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3",
+    "nock": "^13.4.0",
+    "sinon": "^17.0.1",
+    "nyc": "^15.1.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.2",
+    "ts-node": "^10.9.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HameedFarah/n8n-microflows.git"
   },
-  "keywords": ["n8n", "workflows", "automation", "microflows", "AI"],
+  "keywords": [
+    "n8n", 
+    "workflows", 
+    "automation", 
+    "microflows", 
+    "AI", 
+    "validation", 
+    "claude", 
+    "mcp-tools",
+    "supabase",
+    "github-actions",
+    "workflow-automation",
+    "low-code",
+    "no-code",
+    "integration",
+    "api-automation",
+    "data-processing",
+    "business-automation"
+  ],
   "author": "HameedFarah",
-  "license": "MIT"
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/HameedFarah/n8n-microflows/issues"
+  },
+  "homepage": "https://github.com/HameedFarah/n8n-microflows#readme",
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:node/recommended",
+      "plugin:security/recommended",
+      "prettier"
+    ],
+    "env": {
+      "node": true,
+      "es2022": true,
+      "jest": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 2022,
+      "sourceType": "module"
+    },
+    "rules": {
+      "no-console": "off",
+      "node/no-unpublished-require": "off",
+      "security/detect-object-injection": "off"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{md,json}": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged && npm run validate-all",
+      "pre-push": "npm run test"
+    }
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"],
+    "testMatch": [
+      "**/tests/**/*.test.js",
+      "**/scripts/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "scripts/**/*.js",
+      "!scripts/**/*.test.js",
+      "!scripts/test-runner.js"
+    ]
+  },
+  "nyc": {
+    "include": [
+      "scripts/**/*.js"
+    ],
+    "exclude": [
+      "scripts/**/*.test.js",
+      "scripts/test-runner.js"
+    ],
+    "reporter": [
+      "text",
+      "html"
+    ]
+  },
+  "config": {
+    "validation": {
+      "strictMode": true,
+      "enableClaudeIntegration": true,
+      "enableMCPTools": true,
+      "enableSupabaseLogging": true,
+      "maxWorkflowSize": "1MB",
+      "timeoutMs": 30000
+    },
+    "supabase": {
+      "enableRLS": true,
+      "enableVectorSearch": true,
+      "embeddingModel": "text-embedding-ada-002",
+      "maxEmbeddingBatch": 100
+    },
+    "github": {
+      "autoUpdateCatalog": true,
+      "enableSecurityScanning": true,
+      "enablePerformanceTests": true
+    }
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/HameedFarah"
+  }
 }

@@ -1,0 +1,193 @@
+{
+  "workflow_meta": {
+    "id": "generate__seo__meta_tags",
+    "goal": "Automatically generate SEO-optimized meta tags for web content",
+    "category": "seo",
+    "complexity": "medium",
+    "execution_time": "4-6 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["openai_api", "seo_tools"],
+    "tags": ["seo", "meta-tags", "content", "optimization", "ai"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "object",
+          "properties": {
+            "title": {"type": "string", "description": "Page title"},
+            "body": {"type": "string", "description": "Main content body"},
+            "url": {"type": "string", "description": "Target URL"},
+            "images": {"type": "array", "items": {"type": "string"}, "description": "Image URLs"}
+          }
+        },
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "target_keywords": {"type": "array", "items": {"type": "string"}, "description": "Primary keywords to target"},
+        "meta_preferences": {
+          "type": "object",
+          "properties": {
+            "max_title_length": {"type": "number", "default": 60},
+            "max_description_length": {"type": "number", "default": 160},
+            "brand_name": {"type": "string"},
+            "language": {"type": "string", "default": "en"}
+          }
+        },
+        "competitor_urls": {"type": "array", "items": {"type": "string"}, "description": "Optional competitor analysis"}
+      },
+      "required": ["content", "tenant_id", "target_keywords"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "meta_tags": {
+        "title": "optimized page title",
+        "description": "meta description",
+        "keywords": "comma-separated keywords",
+        "og_title": "Open Graph title",
+        "og_description": "Open Graph description",
+        "og_image": "Open Graph image URL",
+        "twitter_title": "Twitter card title",
+        "twitter_description": "Twitter card description",
+        "schema_markup": "JSON-LD structured data"
+      },
+      "seo_score": "0.0-1.0 optimization score",
+      "recommendations": ["array of improvement suggestions"],
+      "character_counts": {
+        "title_length": "number",
+        "description_length": "number"
+      }
+    },
+    "error": {
+      "error_code": "CONTENT_TOO_SHORT|API_ERROR|INVALID_URL",
+      "message": "Human readable error description",
+      "retry_suggested": true
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "gpt",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Analyze content and extract key information",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Handle missing content gracefully"
+      },
+      {
+        "type": "OpenAI",
+        "purpose": "Generate SEO-optimized meta content",
+        "parameters": {
+          "model": "gpt-4",
+          "prompt_template_id": "seo_meta_generation",
+          "prompt_variables": ["content", "keywords", "preferences"],
+          "maxTokens": 800,
+          "temperature": 0.3
+        },
+        "credentials": "openai_api",
+        "error_handling": "Fallback to template-based generation"
+      },
+      {
+        "type": "Code",
+        "purpose": "Parse AI response and format meta tags",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Validate character limits"
+      },
+      {
+        "type": "HTTP Request",
+        "purpose": "Optional: Analyze competitor meta tags",
+        "parameters": {
+          "method": "GET",
+          "url": "={{$node['Code'].json['competitor_url']}}",
+          "timeout": 10000
+        },
+        "error_handling": "Continue without competitor analysis"
+      },
+      {
+        "type": "Code",
+        "purpose": "Calculate SEO score and recommendations",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Provide basic scoring"
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Cache generated meta tags",
+        "parameters": {
+          "operation": "upsert",
+          "table": "seo_cache"
+        },
+        "error_handling": "Continue on cache failure"
+      }
+    ],
+    "gpt_usage": {
+      "model": "gpt-4",
+      "prompt_template_id": "seo_meta_generation",
+      "prompt_variables": ["content", "target_keywords", "meta_preferences"],
+      "justification": "AI excels at understanding content context and generating human-readable, keyword-optimized meta descriptions",
+      "token_estimate": "600-800",
+      "parameters": {
+        "max_tokens": 800,
+        "temperature": 0.3
+      }
+    },
+    "supabase_tables": ["seo_cache", "keyword_performance"],
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "20 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "content": {
+        "title": "Best Wireless Headphones 2024",
+        "body": "Comprehensive review of the top wireless headphones available in 2024, including sound quality tests, battery life comparisons, and price analysis.",
+        "url": "https://example.com/wireless-headphones-2024",
+        "images": ["https://example.com/images/headphones-hero.jpg"]
+      },
+      "tenant_id": "tenant_456",
+      "target_keywords": ["wireless headphones", "2024 review", "best headphones"],
+      "meta_preferences": {
+        "max_title_length": 60,
+        "max_description_length": 155,
+        "brand_name": "TechReview Pro",
+        "language": "en"
+      }
+    },
+    "output": {
+      "meta_tags": {
+        "title": "Best Wireless Headphones 2024 - Expert Reviews | TechReview Pro",
+        "description": "Discover the top wireless headphones of 2024. Expert reviews, sound quality tests, and price comparisons to help you choose the perfect pair.",
+        "keywords": "wireless headphones, 2024 review, best headphones, audio review",
+        "og_title": "Best Wireless Headphones 2024 - Expert Reviews",
+        "og_description": "Comprehensive reviews of 2024's top wireless headphones with sound quality tests and price analysis.",
+        "og_image": "https://example.com/images/headphones-hero.jpg",
+        "twitter_title": "Best Wireless Headphones 2024",
+        "twitter_description": "Expert reviews and comparisons of top wireless headphones",
+        "schema_markup": "{\"@type\":\"Review\",\"itemReviewed\":{\"@type\":\"Product\",\"name\":\"Wireless Headphones\"}}"
+      },
+      "seo_score": 0.87,
+      "recommendations": ["Add more long-tail keywords", "Include price range in description"],
+      "character_counts": {
+        "title_length": 58,
+        "description_length": 147
+      }
+    },
+    "explanation": "Generated SEO-optimized meta tags with proper character limits, social media optimization, and structured data"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["store__cms__content_metadata", "analyze__seo__performance"],
+    "input_from": ["validate__content__quality_check"],
+    "output_to": ["update__website__meta_tags"]
+  }
+}

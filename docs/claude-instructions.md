@@ -50,7 +50,7 @@ Required Actions:
 - Follow N8N import format exactly
 - Use verified node types and parameters from Context7
 - Include proper node IDs, positions, and connections
-- **Apply LLM routing rules for any AI/GPT nodes (see LLM ROUTING RULES below)**
+- **Apply LLM routing rules and quality requirements for any AI/GPT nodes (see LLM sections below)**
 
 Output Required:
 ```
@@ -60,6 +60,7 @@ WORKFLOW GENERATED:
 - Format: Complete N8N importable JSON
 - All required sections included
 - LLM routing applied: [list any AI nodes and routing decisions]
+- Quality tier assigned: [quality assessment for user-facing content]
 ```
 
 ### ✅ STEP 4: N8N MCP VALIDATION (MANDATORY)
@@ -89,6 +90,7 @@ Required Actions:
 - Include implementation notes and requirements
 - Specify any credentials or setup needed
 - Provide testing recommendations
+- **Include quality testing plan for AI nodes if user-facing content**
 
 Output Required:
 ```
@@ -96,6 +98,7 @@ WORKFLOW READY:
 - Complete JSON provided below
 - Validation: All checks passed
 - Requirements: [list any setup requirements]
+- Quality testing plan: [if applicable for user-facing AI content]
 - Ready for N8N import and testing
 ```
 
@@ -132,7 +135,7 @@ llm_routing:
 
 ### MODEL SELECTION HIERARCHY
 
-**1. Cost-Optimized Models (Default)**
+**1. Cost-Optimized Models (Default for Internal/Backend Tasks)**
 - **General Tasks**: `meta-llama/llama-3.1-8b-instruct` (Ultra-cheap)
 - **Content Generation**: `google/gemini-flash-1.5` (Fast + affordable)
 - **Simple Classification**: `anthropic/claude-3-haiku` (Efficient)
@@ -142,85 +145,121 @@ llm_routing:
 - **Complex Logic**: `openai/gpt-4o-mini` (Reliable + affordable)
 - **Code Generation**: `meta-llama/llama-3.1-70b-instruct` (Strong coding)
 
-**3. High-Performance Models (When Specified)**
+**3. High-Performance Models (For User-Facing Content)**
+- **User-Facing Content**: `anthropic/claude-3.5-sonnet` (MINIMUM for user output)
 - **Critical Accuracy**: `anthropic/claude-3-opus` (Premium quality)
 - **Advanced Reasoning**: `openai/o1-preview` (Complex problem-solving)
-- **Custom Requirements**: User-specified model
 
-### ROUTING LOGIC
+## QUALITY EVALUATION FRAMEWORK
+
+### OUTPUT QUALITY TIERS
+
+**TIER 1: INTERNAL/BACKEND (Cost-Optimized)**
+- **Use Cases**: Data processing, classification, internal logs, API responses
+- **Models**: Llama 3.1 8B, Gemini Flash, Claude Haiku
+- **Quality Bar**: Functional, accurate, doesn't need polish
+- **Cost**: ~$0.0001-0.001 per 1K tokens
+
+**TIER 2: BUSINESS CRITICAL (Balanced)**
+- **Use Cases**: Business reports, summaries, internal communications
+- **Models**: Claude 3.5 Sonnet, GPT-4o Mini
+- **Quality Bar**: Professional, coherent, minimal errors
+- **Cost**: ~$0.001-0.01 per 1K tokens
+
+**TIER 3: USER-FACING (Premium Quality Required)**
+- **Use Cases**: Resume reviews, customer communications, public content
+- **Models**: Claude 3.5 Sonnet (minimum), Claude Opus, GPT-4
+- **Quality Bar**: Polished, professional, zero tolerance for poor output
+- **Cost**: ~$0.01-0.05 per 1K tokens
+
+### QUALITY ASSESSMENT CHECKLIST
+
+When any workflow generates user-facing content, include this assessment:
 
 ```yaml
-ai_node_configuration:
-  provider: "openrouter"
-  model_selection:
-    if_not_specified: "meta-llama/llama-3.1-8b-instruct"  # Ultra-cheap default
-    if_content_generation: "google/gemini-flash-1.5"      # Fast generation
-    if_classification: "anthropic/claude-3-haiku"         # Efficient classification
-    if_complex_reasoning: "anthropic/claude-3.5-sonnet"   # Balanced performance
-    if_user_specified: "${user_model_preference}"         # Honor specific requests
+quality_assessment:
+  output_visibility: "internal|business|user-facing"
+  content_type: "data|summary|communication|review|analysis"
+  quality_requirements:
+    - accuracy: "high|critical"
+    - tone: "professional|conversational|technical"
+    - error_tolerance: "low|zero"
+    - brand_impact: "none|medium|high"
   
-  cost_controls:
-    max_tokens: 1000          # Default limit
-    temperature: 0.3          # Conservative for consistency
-    top_p: 0.9               # Focused responses
-    
-  fallback_strategy:
-    primary: "openrouter"
-    secondary: "direct_openai"  # If OpenRouter fails
-    tertiary: "direct_anthropic" # Last resort
+  recommended_model_tier:
+    - tier_1_cost: "$X using Llama 3.1 8B"
+    - tier_2_balanced: "$Y using Claude Sonnet"
+    - tier_3_premium: "$Z using Claude Opus"
+  
+  testing_requirements:
+    - sample_inputs: [list test cases]
+    - quality_metrics: [coherence, accuracy, tone]
+    - human_review_needed: true/false
 ```
 
-### NODE CONFIGURATION EXAMPLES
+### TESTING STRATEGY FOR USER-FACING CONTENT
 
-**OpenRouter HTTP Request Node:**
-```json
-{
-  "type": "n8n-nodes-base.httpRequest",
-  "parameters": {
-    "url": "https://openrouter.ai/api/v1/chat/completions",
-    "method": "POST",
-    "headers": {
-      "Authorization": "Bearer ${OPENROUTER_API_KEY}",
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://n8n.io",
-      "X-Title": "N8N Microflow"
-    },
-    "body": {
-      "model": "meta-llama/llama-3.1-8b-instruct",
-      "messages": [{"role": "user", "content": "{{ $json.prompt }}"}],
-      "max_tokens": 1000,
-      "temperature": 0.3
-    }
-  }
-}
-```
+**MANDATORY for User-Facing Workflows:**
 
-### COST OPTIMIZATION NOTES
+1. **A/B Model Testing**: Create variants with different models
+2. **Quality Benchmarks**: Define specific success criteria
+3. **Human Review Process**: Plan for quality validation
+4. **Fallback Strategy**: Higher-tier model if quality fails
 
-**Include in workflow metadata:**
+**Example Testing Plan:**
 ```yaml
-cost_optimization:
-  estimated_cost_per_run: "$0.001-0.01"  # Based on model selection
-  model_rationale: "Using Llama 3.1 8B for cost efficiency"
-  upgrade_path: "Switch to Claude Sonnet for complex reasoning if needed"
-  cost_controls: "1K token limit, temperature 0.3"
+testing_plan:
+  scenario: "Resume review workflow"
+  
+  models_to_test:
+    - cost_optimized: "meta-llama/llama-3.1-70b-instruct"
+    - balanced: "anthropic/claude-3.5-sonnet"
+    - premium: "anthropic/claude-3-opus"
+  
+  test_cases:
+    - senior_developer_resume.pdf
+    - junior_marketing_resume.pdf
+    - career_change_resume.pdf
+  
+  quality_metrics:
+    - feedback_relevance: "1-10 scale"
+    - professional_tone: "appropriate/inappropriate"
+    - actionable_suggestions: "count specific recommendations"
+    - accuracy: "no factual errors"
+  
+  acceptance_criteria:
+    - minimum_score: 8/10 for user-facing content
+    - zero_tolerance: factual errors, unprofessional tone
+    - cost_target: <$0.05 per review
+  
+  decision_matrix:
+    if_cost_model_passes: "use for scale, monitor quality"
+    if_cost_model_fails: "upgrade to balanced/premium tier"
+    if_all_fail: "redesign prompt or switch to human review"
 ```
 
-### WHEN TO USE SPECIFIC MODELS
+### COST VS QUALITY DECISION FRAMEWORK
 
-**Override defaults only when:**
-- User explicitly requests specific model
-- Task requires specialized capabilities (e.g., "I need GPT-4 for complex code analysis")
-- Previous testing shows better results with premium models
-- Cost is not a primary concern for critical workflows
-
-**Document model choice reasoning:**
 ```yaml
-model_selection_rationale:
-  chosen_model: "anthropic/claude-3.5-sonnet"
-  reason: "User specified need for advanced reasoning capabilities"
-  cost_impact: "+200% vs default Llama model"
-  alternative: "meta-llama/llama-3.1-8b-instruct for cost optimization"
+decision_framework:
+  user_facing_content:
+    rule: "NEVER compromise on quality for user-facing content"
+    minimum_tier: "tier_2_balanced" 
+    upgrade_triggers:
+      - user_complaints: "immediate upgrade to premium"
+      - quality_score: "<8/10 requires tier upgrade"
+      - brand_risk: "high visibility content = premium tier"
+  
+  internal_content:
+    rule: "Optimize for cost, monitor for functional accuracy"
+    default_tier: "tier_1_cost"
+    upgrade_triggers:
+      - accuracy_critical: "upgrade to balanced"
+      - business_impact: "high impact = tier 2+"
+  
+  hybrid_approach:
+    strategy: "Use cost model for drafts, premium for final output"
+    implementation: "Two-stage workflow with quality gate"
 ```
 
 ## ENFORCEMENT MECHANISMS
@@ -243,9 +282,9 @@ Each step MUST produce the specified output format. Cannot proceed without compl
 ### 3. VALIDATION GATES
 - Step 1: Must search GitHub repo and report results
 - Step 2: Must query Context7 and confirm documentation  
-- Step 3: Must generate complete importable workflow with LLM routing applied
+- Step 3: Must generate complete importable workflow with LLM routing and quality assessment
 - Step 4: Must run N8N MCP validation and fix all issues
-- Step 5: Must provide ready-to-import workflow
+- Step 5: Must provide ready-to-import workflow with quality testing plan
 - Step 6: Must wait for user testing confirmation before committing
 
 ### 4. ERROR HANDLING
@@ -258,7 +297,7 @@ If any step fails:
 ### 5. USER CHECKPOINTS
 At key points, confirm with user:
 - After Step 1: "Found similar workflows - should I adapt [workflow_id] or create new?"
-- After Step 3: "Applied OpenRouter routing for AI nodes - using [model] for cost optimization"
+- After Step 3: "Applied quality tier [X] for user-facing content - using [model] with testing plan"
 - After Step 4: "Validation complete - ready to provide workflow for testing?"
 - Before Step 6: "Please confirm the workflow tested successfully in N8N before I commit to repository"
 
@@ -272,6 +311,7 @@ Before starting any workflow creation, confirm:
 - Results will be reported at each stage
 - No steps will be skipped
 - LLM routing rules will be applied for cost optimization
+- Quality evaluation framework will be applied for user-facing content
 - User confirmation required before final commit
 
 Proceeding with Step 1: Searching existing workflows in HameedFarah/n8n-microflows repository...
@@ -284,4 +324,5 @@ Proceeding with Step 1: Searching existing workflows in HameedFarah/n8n-microflo
 4. **Official Documentation**: Always verify with Context7 N8N documentation
 5. **Validation Required**: All workflows must pass N8N MCP validation before delivery
 6. **No Internet Search**: Do not use web search for workflows or nodes
-7. **LLM Cost Control**: Default to OpenRouter with cost-optimized models unless specifically requested otherwise
+7. **LLM Cost Control**: Default to OpenRouter with cost-optimized models unless quality requires upgrade
+8. **Quality First**: Never compromise on quality for user-facing content - upgrade model tier as needed

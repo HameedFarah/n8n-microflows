@@ -1,0 +1,312 @@
+{
+  "workflow_meta": {
+    "id": "generate__gpt__product_review_article",
+    "goal": "Generate comprehensive product review articles using GPT with structured formatting and SEO optimization",
+    "category": "content",
+    "complexity": "medium",
+    "execution_time": "15-30 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["openai_api", "supabase"],
+    "tags": ["content_generation", "product_review", "seo", "gpt", "article"],
+    "version": "1.0.0",
+    "author": "n8n-microflows",
+    "created_date": "2025-06-29T16:57:00Z"
+  },
+
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "product_name": {
+          "type": "string",
+          "description": "Name of the product to review"
+        },
+        "product_category": {
+          "type": "string",
+          "description": "Category of the product (electronics, clothing, etc.)"
+        },
+        "key_features": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Array of key product features"
+        },
+        "target_audience": {
+          "type": "string",
+          "description": "Target audience for the review"
+        },
+        "word_count": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 2000,
+          "default": 1000,
+          "description": "Desired word count for the article"
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Tenant ID for multi-tenant isolation"
+        }
+      },
+      "required": ["product_name", "product_category", "tenant_id"]
+    },
+    "validation_rules": [
+      {
+        "field": "product_name",
+        "rule": "min_length_3",
+        "message": "Product name must be at least 3 characters"
+      },
+      {
+        "field": "word_count",
+        "rule": "range_500_2000",
+        "message": "Word count must be between 500 and 2000"
+      }
+    ],
+    "tenant_isolation": {
+      "required": true,
+      "tenant_field": "tenant_id",
+      "validation_method": "parameter"
+    }
+  },
+
+  "outputs": {
+    "success": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "article_title": {"type": "string"},
+          "article_content": {"type": "string"},
+          "word_count": {"type": "integer"},
+          "seo_keywords": {"type": "array", "items": {"type": "string"}},
+          "meta_description": {"type": "string"},
+          "readability_score": {"type": "number"},
+          "generated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "examples": [
+        {
+          "article_title": "Comprehensive Review: iPhone 15 Pro Max - A Game-Changer in Mobile Technology",
+          "article_content": "# iPhone 15 Pro Max Review\n\nThe iPhone 15 Pro Max represents Apple's...",
+          "word_count": 1247,
+          "seo_keywords": ["iPhone 15 Pro Max", "smartphone review", "Apple mobile"],
+          "meta_description": "In-depth review of the iPhone 15 Pro Max covering performance, camera quality, and value for money",
+          "readability_score": 8.2,
+          "generated_at": "2025-06-29T16:57:00Z"
+        }
+      ]
+    },
+    "error": {
+      "error_code": "CONTENT_GENERATION_FAILED",
+      "message": "Failed to generate product review article",
+      "retry_suggested": true,
+      "debug_info": {
+        "log_level": "error",
+        "context_fields": ["product_name", "gpt_response", "token_usage"]
+      }
+    }
+  },
+
+  "implementation": {
+    "primary_approach": "gpt",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Input validation and data preparation",
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// Validate and prepare input data\nconst input = $input.all()[0].json;\n\n// Validate required fields\nif (!input.product_name || input.product_name.length < 3) {\n  throw new Error('Product name must be at least 3 characters');\n}\n\nif (!input.tenant_id) {\n  throw new Error('Tenant ID is required');\n}\n\n// Prepare data for GPT\nconst prompt_data = {\n  product_name: input.product_name,\n  product_category: input.product_category || 'general',\n  key_features: input.key_features || [],\n  target_audience: input.target_audience || 'general consumers',\n  word_count: input.word_count || 1000,\n  tenant_id: input.tenant_id\n};\n\nreturn { prompt_data };"
+        },
+        "error_handling": {
+          "strategy": "fail",
+          "retry_count": 0,
+          "fallback": "return_validation_error"
+        },
+        "timeout": 5000
+      },
+      {
+        "type": "OpenAI",
+        "purpose": "Generate product review article using GPT",
+        "parameters": {
+          "model": "gpt-4o-mini",
+          "maxTokens": 2000,
+          "temperature": 0.7,
+          "prompt": "Write a comprehensive product review article for {{ $json.prompt_data.product_name }} in the {{ $json.prompt_data.product_category }} category.\n\nTarget audience: {{ $json.prompt_data.target_audience }}\nDesired word count: {{ $json.prompt_data.word_count }}\nKey features to highlight: {{ $json.prompt_data.key_features.join(', ') }}\n\nStructure the review with:\n1. Engaging title\n2. Introduction\n3. Key features analysis\n4. Pros and cons\n5. Performance evaluation\n6. Value for money assessment\n7. Conclusion with recommendation\n\nMake it SEO-friendly with natural keyword integration. Use markdown formatting.",
+          "responseFormat": "text"
+        },
+        "credentials": "openai_api",
+        "error_handling": {
+          "strategy": "retry",
+          "retry_count": 2,
+          "fallback": "return_generic_error"
+        },
+        "timeout": 30000
+      },
+      {
+        "type": "Code",
+        "purpose": "Process GPT response and extract article components",
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// Process GPT response\nconst gptResponse = $input.all()[0].json.choices[0].message.content;\nconst promptData = $input.all()[0].json.prompt_data;\n\n// Extract title (first line that starts with #)\nconst titleMatch = gptResponse.match(/^#\\s*(.+)$/m);\nconst article_title = titleMatch ? titleMatch[1].trim() : `${promptData.product_name} Review`;\n\n// Clean content and remove title from body\nlet article_content = gptResponse.replace(/^#\\s*.+$/m, '').trim();\n\n// Calculate word count\nconst word_count = article_content.split(/\\s+/).filter(word => word.length > 0).length;\n\n// Extract potential SEO keywords\nconst seo_keywords = [\n  promptData.product_name.toLowerCase(),\n  `${promptData.product_name.toLowerCase()} review`,\n  promptData.product_category.toLowerCase(),\n  'product review'\n];\n\n// Generate meta description (first 150 chars of content)\nconst cleanText = article_content.replace(/[#*`]/g, '').replace(/\\n+/g, ' ');\nconst meta_description = cleanText.substring(0, 150).trim() + '...';\n\n// Simple readability score (based on sentence length)\nconst sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 0);\nconst avgWordsPerSentence = word_count / sentences.length;\nconst readability_score = Math.max(1, Math.min(10, 12 - (avgWordsPerSentence / 3)));\n\nreturn {\n  article_title,\n  article_content,\n  word_count,\n  seo_keywords,\n  meta_description,\n  readability_score: Math.round(readability_score * 10) / 10,\n  generated_at: new Date().toISOString(),\n  tenant_id: promptData.tenant_id\n};"
+        },
+        "error_handling": {
+          "strategy": "fail",
+          "retry_count": 0,
+          "fallback": "return_processing_error"
+        },
+        "timeout": 10000
+      },
+      {
+        "type": "Supabase",
+        "purpose": "Store generated article for analytics and caching",
+        "parameters": {
+          "operation": "insert",
+          "table": "generated_content",
+          "records": "={{ [$json] }}"
+        },
+        "credentials": "supabase_api",
+        "error_handling": {
+          "strategy": "continue",
+          "retry_count": 1,
+          "fallback": "log_storage_error"
+        },
+        "timeout": 15000
+      }
+    ],
+    "supabase_tables": ["generated_content", "execution_logs"],
+    "performance": {
+      "max_memory_mb": 512,
+      "max_execution_time_ms": 45000,
+      "concurrent_limit": 5
+    },
+    "error_handling": {
+      "retry_policy": "exponential_backoff",
+      "timeout": "45 seconds"
+    }
+  },
+
+  "supabase_config": {
+    "tables": [
+      {
+        "name": "generated_content",
+        "purpose": "Store generated articles for analytics and caching",
+        "tenant_field": "tenant_id",
+        "indexes": ["tenant_id", "created_at", "product_category"]
+      }
+    ],
+    "rls_policies": [
+      {
+        "table": "generated_content",
+        "policy_name": "tenant_isolation_select",
+        "operation": "SELECT",
+        "condition": "auth.jwt() ->> 'tenant_id' = tenant_id"
+      },
+      {
+        "table": "generated_content",
+        "policy_name": "tenant_isolation_insert",
+        "operation": "INSERT",
+        "condition": "auth.jwt() ->> 'tenant_id' = tenant_id"
+      }
+    ],
+    "functions": [
+      {
+        "name": "update_content_analytics",
+        "purpose": "Update analytics for generated content",
+        "returns": "void"
+      }
+    ]
+  },
+
+  "example": {
+    "input": {
+      "product_name": "iPhone 15 Pro Max",
+      "product_category": "smartphones",
+      "key_features": ["A17 Pro chip", "48MP camera system", "Titanium design", "120Hz display"],
+      "target_audience": "tech enthusiasts",
+      "word_count": 1200,
+      "tenant_id": "tenant_123"
+    },
+    "output": {
+      "article_title": "iPhone 15 Pro Max Review: The Ultimate Smartphone for Tech Enthusiasts",
+      "article_content": "## Introduction\n\nThe iPhone 15 Pro Max represents Apple's most ambitious smartphone to date...",
+      "word_count": 1247,
+      "seo_keywords": ["iphone 15 pro max", "iphone 15 pro max review", "smartphones", "product review"],
+      "meta_description": "Comprehensive review of the iPhone 15 Pro Max covering the A17 Pro chip, 48MP camera system, titanium design, and overall performance for tech enthusiasts...",
+      "readability_score": 8.2,
+      "generated_at": "2025-06-29T16:57:00Z"
+    },
+    "explanation": "This workflow generates a comprehensive product review article by taking basic product information and using GPT to create structured, SEO-optimized content. The system validates inputs, processes them through GPT-4, extracts key components like title and keywords, calculates readability metrics, and stores the results in Supabase for analytics. The workflow includes tenant isolation for multi-tenant environments and comprehensive error handling.",
+    "test_scenarios": [
+      {
+        "scenario": "Basic product review generation",
+        "input": {
+          "product_name": "Samsung Galaxy S24",
+          "product_category": "smartphones",
+          "tenant_id": "tenant_123"
+        },
+        "expected_output": {
+          "article_title": "Samsung Galaxy S24 Review: A Comprehensive Analysis",
+          "word_count": 1000
+        }
+      },
+      {
+        "scenario": "Custom word count and features",
+        "input": {
+          "product_name": "MacBook Air M3",
+          "product_category": "laptops",
+          "key_features": ["M3 chip", "18-hour battery", "Liquid Retina display"],
+          "word_count": 1500,
+          "tenant_id": "tenant_456"
+        },
+        "expected_output": {
+          "word_count": 1500,
+          "seo_keywords": ["macbook air m3", "macbook air m3 review", "laptops"]
+        }
+      },
+      {
+        "scenario": "Error handling - missing tenant ID",
+        "input": {
+          "product_name": "iPad Pro"
+        },
+        "expected_output": {
+          "error_code": "VALIDATION_ERROR",
+          "message": "Tenant ID is required"
+        }
+      }
+    ]
+  },
+
+  "reuse_info": {
+    "compatible_with": [
+      "validate__schema__product_data",
+      "post__slack__content_notification",
+      "store__supabase__content_analytics"
+    ],
+    "input_from": [
+      "product_catalog_systems",
+      "content_management_platforms",
+      "e-commerce_apis"
+    ],
+    "output_to": [
+      "content_management_systems",
+      "blog_platforms",
+      "seo_tools",
+      "social_media_schedulers"
+    ],
+    "chaining_examples": [
+      {
+        "chain": ["validate__schema__product_data", "generate__gpt__product_review_article", "post__slack__content_notification"],
+        "use_case": "Automated product review pipeline with notifications"
+      },
+      {
+        "chain": ["generate__gpt__product_review_article", "transform__markdown__html", "post__wordpress__blog_article"],
+        "use_case": "Complete content creation and publishing workflow"
+      }
+    ]
+  },
+
+  "vector_embedding": {
+    "embedding_text": "Generate comprehensive product review articles using GPT with structured formatting SEO optimization content creation product analysis",
+    "keywords": ["content_generation", "product_review", "gpt", "seo", "article", "marketing"],
+    "semantic_tags": ["content_creation", "ai_writing", "product_analysis", "seo_optimization"],
+    "similarity_threshold": 0.8
+  }
+}

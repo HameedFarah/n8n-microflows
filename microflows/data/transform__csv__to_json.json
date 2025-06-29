@@ -1,0 +1,101 @@
+{
+  "workflow_meta": {
+    "id": "transform__csv__to_json",
+    "goal": "Transform CSV data to structured JSON with validation and error handling",
+    "category": "data",
+    "complexity": "medium",
+    "execution_time": "1-3 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["csv_parser"],
+    "tags": ["csv", "json", "transformation", "validation"]
+  },
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "csv_data": {
+          "type": "string",
+          "description": "Raw CSV data to transform"
+        },
+        "delimiter": {
+          "type": "string",
+          "description": "CSV delimiter character",
+          "default": ","
+        },
+        "headers": {
+          "type": "array",
+          "description": "Expected column headers",
+          "items": {"type": "string"}
+        },
+        "validation_rules": {
+          "type": "object",
+          "description": "Validation rules for each column"
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Required for tenant isolation"
+        }
+      },
+      "required": ["csv_data", "tenant_id"]
+    }
+  },
+  "outputs": {
+    "success": {
+      "json_data": "array",
+      "processed_rows": "number",
+      "validation_errors": "array",
+      "status": "success"
+    },
+    "error": {
+      "error_code": "CSV_TRANSFORM_FAILED",
+      "message": "Human readable error description",
+      "retry_suggested": false
+    }
+  },
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Parse CSV and validate data",
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "code": "// Parse CSV with specified delimiter\nconst csv = require('csv-parse/sync');\nconst csvData = $json.csv_data;\nconst delimiter = $json.delimiter || ',';\nconst headers = $json.headers;\nconst validationRules = $json.validation_rules || {};\n\ntry {\n  const records = csv.parse(csvData, {\n    columns: headers || true,\n    delimiter: delimiter,\n    skip_empty_lines: true\n  });\n  \n  const validationErrors = [];\n  const processedData = records.map((record, index) => {\n    // Apply validation rules\n    Object.keys(validationRules).forEach(field => {\n      const rule = validationRules[field];\n      const value = record[field];\n      \n      if (rule.required && !value) {\n        validationErrors.push({\n          row: index + 1,\n          field: field,\n          error: 'Required field is empty'\n        });\n      }\n      \n      if (rule.type === 'email' && value && !value.includes('@')) {\n        validationErrors.push({\n          row: index + 1,\n          field: field,\n          error: 'Invalid email format'\n        });\n      }\n    });\n    \n    return record;\n  });\n  \n  return {\n    json_data: processedData,\n    processed_rows: processedData.length,\n    validation_errors: validationErrors,\n    status: 'success'\n  };\n} catch (error) {\n  throw new Error(`CSV parsing failed: ${error.message}`);\n}"
+        },
+        "error_handling": "Handle CSV parsing errors"
+      }
+    ],
+    "error_handling": {
+      "retry_policy": "none",
+      "timeout": "10 seconds"
+    }
+  },
+  "example": {
+    "input": {
+      "csv_data": "name,email,age\\nJohn Doe,john@example.com,30\\nJane Smith,jane@example.com,25",
+      "delimiter": ",",
+      "headers": ["name", "email", "age"],
+      "validation_rules": {
+        "email": {"required": true, "type": "email"},
+        "name": {"required": true}
+      },
+      "tenant_id": "tenant_123"
+    },
+    "output": {
+      "json_data": [
+        {"name": "John Doe", "email": "john@example.com", "age": "30"},
+        {"name": "Jane Smith", "email": "jane@example.com", "age": "25"}
+      ],
+      "processed_rows": 2,
+      "validation_errors": [],
+      "status": "success"
+    },
+    "explanation": "Transforms CSV data to JSON format with validation of email format and required fields"
+  },
+  "reuse_info": {
+    "compatible_with": ["data_import_workflows", "batch_processing"],
+    "input_from": ["file_upload", "api_data_fetch"],
+    "output_to": ["database_import", "data_validation"]
+  }
+}

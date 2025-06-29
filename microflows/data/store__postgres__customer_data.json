@@ -1,0 +1,162 @@
+{
+  "workflow_meta": {
+    "id": "store__postgres__customer_data",
+    "goal": "Safely store customer information with encryption and audit trails",
+    "category": "data",
+    "complexity": "medium",
+    "execution_time": "3-5 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["postgres_db", "encryption_service"],
+    "tags": ["database", "customer", "encryption", "audit", "GDPR"]
+  },
+  
+  "inputs": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "customer_data": {
+          "type": "object",
+          "properties": {
+            "email": {"type": "string", "format": "email"},
+            "first_name": {"type": "string"},
+            "last_name": {"type": "string"},
+            "phone": {"type": "string"},
+            "address": {"type": "object"},
+            "preferences": {"type": "object"},
+            "consent": {"type": "object"}
+          }
+        },
+        "tenant_id": {"type": "string", "description": "Required for tenant isolation"},
+        "operation": {"type": "string", "enum": ["create", "update", "upsert"], "description": "Database operation type"},
+        "customer_id": {"type": "string", "description": "Required for update operations"},
+        "audit_metadata": {
+          "type": "object",
+          "properties": {
+            "user_id": {"type": "string"},
+            "source": {"type": "string"},
+            "ip_address": {"type": "string"}
+          }
+        }
+      },
+      "required": ["customer_data", "tenant_id", "operation", "audit_metadata"]
+    }
+  },
+  
+  "outputs": {
+    "success": {
+      "customer_id": "generated or existing customer ID",
+      "operation_result": "created|updated",
+      "audit_log_id": "audit trail reference",
+      "encrypted_fields": ["list of fields that were encrypted"],
+      "status": "success"
+    },
+    "error": {
+      "error_code": "VALIDATION_FAILED|ENCRYPTION_ERROR|DB_ERROR|GDPR_VIOLATION",
+      "message": "Human readable error description",
+      "retry_suggested": false
+    }
+  },
+  
+  "implementation": {
+    "primary_approach": "code",
+    "n8n_nodes": [
+      {
+        "type": "Code",
+        "purpose": "Validate and sanitize customer data",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Reject invalid data formats"
+      },
+      {
+        "type": "Code",
+        "purpose": "Encrypt sensitive fields (PII)",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Fail securely on encryption errors"
+      },
+      {
+        "type": "Postgres",
+        "purpose": "Store customer data in tenant-isolated table",
+        "parameters": {
+          "operation": "insert",
+          "table": "customers",
+          "schema": "={{$node['Code'].json['tenant_schema']}}",
+          "conflictResolution": "upsert"
+        },
+        "credentials": "postgres_main",
+        "error_handling": "Rollback on constraint violations"
+      },
+      {
+        "type": "Postgres",
+        "purpose": "Create audit log entry",
+        "parameters": {
+          "operation": "insert",
+          "table": "audit_logs",
+          "schema": "audit"
+        },
+        "error_handling": "Log but don't fail main operation"
+      },
+      {
+        "type": "Code",
+        "purpose": "Format success response",
+        "parameters": {
+          "mode": "runOnceForEachItem"
+        },
+        "error_handling": "Ensure consistent response format"
+      }
+    ],
+    "supabase_tables": ["customers", "audit_logs", "tenant_configs"],
+    "error_handling": {
+      "retry_policy": "none",
+      "timeout": "15 seconds"
+    }
+  },
+  
+  "example": {
+    "input": {
+      "customer_data": {
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "phone": "+1-555-0123",
+        "address": {
+          "street": "123 Main St",
+          "city": "Anytown",
+          "country": "US"
+        },
+        "preferences": {
+          "newsletter": true,
+          "marketing": false
+        },
+        "consent": {
+          "data_processing": true,
+          "timestamp": "2024-01-15T10:30:00Z"
+        }
+      },
+      "tenant_id": "tenant_789",
+      "operation": "create",
+      "audit_metadata": {
+        "user_id": "user_456",
+        "source": "web_form",
+        "ip_address": "192.168.1.100"
+      }
+    },
+    "output": {
+      "customer_id": "cust_abc123",
+      "operation_result": "created",
+      "audit_log_id": "audit_xyz789",
+      "encrypted_fields": ["email", "phone", "address"],
+      "status": "success"
+    },
+    "explanation": "Customer data stored with PII encryption, tenant isolation enforced, audit trail created"
+  },
+  
+  "reuse_info": {
+    "compatible_with": ["validate__gdpr__consent_check", "enrich__api__customer_profile"],
+    "input_from": ["validate__input__customer_form"],
+    "output_to": ["post__email__welcome_sequence"]
+  }
+}

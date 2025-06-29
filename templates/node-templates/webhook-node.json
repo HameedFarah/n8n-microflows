@@ -1,0 +1,68 @@
+{
+  "type": "Webhook",
+  "purpose": "Receive external HTTP requests",
+  "parameters": {
+    "path": "{{webhook_path}}",
+    "httpMethod": "{{http_method}}",
+    "responseMode": "responseNode",
+    "responseData": "firstEntryBinary",
+    "options": {
+      "noResponseBody": false,
+      "rawBody": false,
+      "allowedOrigins": "*"
+    }
+  },
+  "error_handling": "{{error_strategy}}",
+  "description": "Webhook node template for receiving external requests",
+  "common_configurations": {
+    "json_webhook": {
+      "httpMethod": "POST",
+      "responseMode": "responseNode",
+      "options": {
+        "rawBody": false
+      }
+    },
+    "form_webhook": {
+      "httpMethod": "POST",
+      "responseMode": "responseNode",
+      "options": {
+        "rawBody": true
+      }
+    },
+    "get_webhook": {
+      "httpMethod": "GET",
+      "responseMode": "onReceived",
+      "responseData": "firstEntryJson"
+    }
+  },
+  "typical_use_cases": [
+    "API endpoint creation",
+    "External system integration",
+    "Event-driven workflows",
+    "Real-time data processing"
+  ],
+  "security_considerations": [
+    "Validate incoming data",
+    "Implement authentication if needed",
+    "Rate limiting for public endpoints",
+    "Input sanitization"
+  ],
+  "response_templates": {
+    "success": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "Request processed successfully",
+        "data": "{{ $json }}"
+      }
+    },
+    "error": {
+      "status": 400,
+      "body": {
+        "success": false,
+        "message": "Invalid request",
+        "error": "{{ $json.error }}"
+      }
+    }
+  }
+}

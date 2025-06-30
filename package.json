@@ -1,7 +1,7 @@
 {
   "name": "n8n-microflows",
-  "version": "1.2.0",
-  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery with context preservation and smart documentation caching",
+  "version": "1.3.0",
+  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery with context preservation, smart documentation caching, and Claude Desktop MCP integration",
   "scripts": {
     "validate": "node scripts/validate-workflow.js",
     "check-naming": "node scripts/check-naming.js",
@@ -18,6 +18,8 @@
     "claude-validate": "node scripts/claude-real-time-validator.js",
     "claude-enhanced": "node scripts/enhanced-claude-validator.js",
     "claude-ultra": "node scripts/ultra-enhanced-validator.js",
+    "mcp-server": "node scripts/n8n-mcp-server.js",
+    "mcp-test": "node scripts/n8n-mcp-server.js --test",
     "context-save": "node scripts/context-manager.js save",
     "context-restore": "node scripts/context-manager.js restore",
     "context-list": "node scripts/context-manager.js list",
@@ -58,6 +60,7 @@
     "postinstall": "npm run setup-supabase --if-present && npm run docs-prefetch --if-present"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
     "@supabase/supabase-js": "^2.39.0",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
@@ -128,6 +131,8 @@
     "AI", 
     "validation", 
     "claude", 
+    "claude-desktop",
+    "mcp-server",
     "mcp-tools",
     "supabase",
     "github-actions",
@@ -257,6 +262,12 @@
       "prefetchPopular": true,
       "autoCleanup": true,
       "compressionEnabled": true
+    },
+    "mcp": {
+      "serverName": "n8n-context-server",
+      "version": "1.0.0",
+      "autoStartSession": true,
+      "enableCaching": true
     }
   },
   "funding": {

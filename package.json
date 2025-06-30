@@ -1,7 +1,7 @@
 {
   "name": "n8n-microflows",
-  "version": "1.0.0",
-  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery",
+  "version": "1.1.0",
+  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery with context preservation",
   "scripts": {
     "validate": "node scripts/validate-workflow.js",
     "check-naming": "node scripts/check-naming.js",
@@ -16,6 +16,13 @@
     "generate-embeddings": "node scripts/generate-embeddings.js",
     "validate-all": "npm run validate && npm run check-naming && npm run check-docs",
     "claude-validate": "node scripts/claude-real-time-validator.js",
+    "claude-enhanced": "node scripts/enhanced-claude-validator.js",
+    "context-save": "node scripts/context-manager.js save",
+    "context-restore": "node scripts/context-manager.js restore",
+    "context-list": "node scripts/context-manager.js list",
+    "session-start": "node scripts/enhanced-claude-validator.js session start",
+    "session-stats": "node scripts/enhanced-claude-validator.js session stats",
+    "session-checkpoint": "node scripts/enhanced-claude-validator.js session checkpoint",
     "mcp-validate": "node scripts/n8n-mcp-validator.js",
     "advanced-validate": "node scripts/advanced-validation.js",
     "pipeline-validate": "node scripts/validation-pipeline-integration.js",
@@ -38,7 +45,7 @@
     "audit:fix": "npm audit fix",
     "deps:update": "npm update && npm audit fix",
     "deps:check": "npm outdated",
-    "clean": "rm -rf node_modules/.cache test-report.json quality-report.md",
+    "clean": "rm -rf node_modules/.cache test-report.json quality-report.md .n8n-context",
     "prebuild": "npm run clean",
     "postinstall": "npm run setup-supabase --if-present"
   },
@@ -122,7 +129,9 @@
     "integration",
     "api-automation",
     "data-processing",
-    "business-automation"
+    "business-automation",
+    "context-preservation",
+    "session-management"
   ],
   "author": "HameedFarah",
   "license": "MIT",
@@ -209,12 +218,14 @@
       "enableClaudeIntegration": true,
       "enableMCPTools": true,
       "enableSupabaseLogging": true,
+      "enableContextPreservation": true,
       "maxWorkflowSize": "1MB",
       "timeoutMs": 30000
     },
     "supabase": {
       "enableRLS": true,
       "enableVectorSearch": true,
+      "enableContextTable": true,
       "embeddingModel": "text-embedding-ada-002",
       "maxEmbeddingBatch": 100
     },
@@ -222,6 +233,12 @@
       "autoUpdateCatalog": true,
       "enableSecurityScanning": true,
       "enablePerformanceTests": true
+    },
+    "context": {
+      "autoSaveInterval": 3,
+      "maxSessions": 10,
+      "localFallback": true,
+      "estimatedSteps": 6
     }
   },
   "funding": {

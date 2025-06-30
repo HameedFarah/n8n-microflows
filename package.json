@@ -1,7 +1,7 @@
 {
   "name": "n8n-microflows",
-  "version": "1.1.0",
-  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery with context preservation",
+  "version": "1.2.0",
+  "description": "Validation and automation scripts for N8N microflows with comprehensive testing, security scanning, and AI-powered workflow discovery with context preservation and smart documentation caching",
   "scripts": {
     "validate": "node scripts/validate-workflow.js",
     "check-naming": "node scripts/check-naming.js",
@@ -17,12 +17,20 @@
     "validate-all": "npm run validate && npm run check-naming && npm run check-docs",
     "claude-validate": "node scripts/claude-real-time-validator.js",
     "claude-enhanced": "node scripts/enhanced-claude-validator.js",
+    "claude-ultra": "node scripts/ultra-enhanced-validator.js",
     "context-save": "node scripts/context-manager.js save",
     "context-restore": "node scripts/context-manager.js restore",
     "context-list": "node scripts/context-manager.js list",
+    "docs-cache": "node scripts/docs-cache.js",
+    "docs-prefetch": "node scripts/docs-cache.js prefetch",
+    "docs-stats": "node scripts/docs-cache.js stats",
+    "docs-clear": "node scripts/docs-cache.js clear",
     "session-start": "node scripts/enhanced-claude-validator.js session start",
+    "session-enhanced": "node scripts/ultra-enhanced-validator.js session-enhanced start",
     "session-stats": "node scripts/enhanced-claude-validator.js session stats",
+    "session-stats-enhanced": "node scripts/ultra-enhanced-validator.js session-enhanced stats",
     "session-checkpoint": "node scripts/enhanced-claude-validator.js session checkpoint",
+    "validate-ultra": "node scripts/ultra-enhanced-validator.js validate-ultra",
     "mcp-validate": "node scripts/n8n-mcp-validator.js",
     "advanced-validate": "node scripts/advanced-validation.js",
     "pipeline-validate": "node scripts/validation-pipeline-integration.js",
@@ -45,9 +53,9 @@
     "audit:fix": "npm audit fix",
     "deps:update": "npm update && npm audit fix",
     "deps:check": "npm outdated",
-    "clean": "rm -rf node_modules/.cache test-report.json quality-report.md .n8n-context",
+    "clean": "rm -rf node_modules/.cache test-report.json quality-report.md .n8n-context .n8n-docs-cache",
     "prebuild": "npm run clean",
-    "postinstall": "npm run setup-supabase --if-present"
+    "postinstall": "npm run setup-supabase --if-present && npm run docs-prefetch --if-present"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -131,7 +139,9 @@
     "data-processing",
     "business-automation",
     "context-preservation",
-    "session-management"
+    "session-management",
+    "documentation-caching",
+    "api-optimization"
   ],
   "author": "HameedFarah",
   "license": "MIT",
@@ -219,6 +229,7 @@
       "enableMCPTools": true,
       "enableSupabaseLogging": true,
       "enableContextPreservation": true,
+      "enableDocumentationCaching": true,
       "maxWorkflowSize": "1MB",
       "timeoutMs": 30000
     },
@@ -239,6 +250,13 @@
       "maxSessions": 10,
       "localFallback": true,
       "estimatedSteps": 6
+    },
+    "documentationCache": {
+      "maxAge": "7d",
+      "maxSize": "100MB",
+      "prefetchPopular": true,
+      "autoCleanup": true,
+      "compressionEnabled": true
     }
   },
   "funding": {

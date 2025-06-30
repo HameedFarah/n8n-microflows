@@ -1,0 +1,40 @@
+{
+  "workflow_meta": {
+    "id": "test__context__validation",
+    "goal": "Test context preservation system functionality",
+    "category": "validation",
+    "complexity": "simple",
+    "execution_time": "1-2 seconds",
+    "reuse_potential": "high",
+    "tenant_aware": "yes",
+    "dependencies": ["context-manager"],
+    "tags": ["test", "context", "validation"]
+  },
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 200],
+      "parameters": {
+        "path": "test-context",
+        "httpMethod": "POST"
+      },
+      "name": "Test Webhook"
+    }
+  ],
+  "connections": {},
+  "implementation": {
+    "primary_approach": "webhook",
+    "n8n_nodes": [
+      {
+        "type": "Webhook",
+        "purpose": "Test context preservation",
+        "parameters": {"path": "test-context"},
+        "error_handling": "Log and continue"
+      }
+    ]
+  },
+  "test_data": {
+    "input": {"message": "testing context preservation"},
+    "expected_output": {"status": "success"}
+  }
+}
